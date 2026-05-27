@@ -1214,7 +1214,7 @@ function pgDashboard(){
           ${(()=>{
             const tx=Math.min(Math.max(curPt.x-32,PL),W-PR-66);
             const ty=curPt.y>PT+30?curPt.y-34:curPt.y+14;
-            const label=fmt(curPt.v).replace("R$ ","R$");
+            const label=fmt(curPt.v).replace("R$ ","R$");
             return`<rect x="${tx}" y="${ty}" width="66" height="20" rx="6" fill="#10B981" filter="drop-shadow(0 2px 4px rgba(0,0,0,.3))"/>
               <text x="${(tx+33).toFixed(1)}" y="${(ty+13.5).toFixed(1)}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">${label}</text>`;
           })()}
@@ -1288,7 +1288,7 @@ function pgDashboard(){
           </svg>
           <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
             <div style="font-size:.58rem;color:var(--txt2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total</div>
-            <div style="font-size:.82rem;font-weight:800;color:var(--txt);white-space:nowrap">${fmt(catPizza.reduce((a,s)=>a+s.total,0)).replace('R$ ','R$ ')}</div>
+            <div style="font-size:.82rem;font-weight:800;color:var(--txt);white-space:nowrap">${fmt(catPizza.reduce((a,s)=>a+s.total,0)).replace('R$ ','R$ ')}</div>
           </div>
         </div>
         <div style="width:100%;display:flex;flex-direction:column;gap:6px">
@@ -1349,7 +1349,7 @@ function pgDashboard(){
           </svg>
           <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
             <div style="font-size:.58rem;color:var(--txt2);font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total</div>
-            <div style="font-size:.82rem;font-weight:800;color:var(--txt);white-space:nowrap">${fmt(cardPizza.reduce((a,s)=>a+s.total,0)).replace('R$ ','R$ ')}</div>
+            <div style="font-size:.82rem;font-weight:800;color:var(--txt);white-space:nowrap">${fmt(cardPizza.reduce((a,s)=>a+s.total,0)).replace('R$ ','R$ ')}</div>
           </div>
         </div>
         <div style="width:100%;display:flex;flex-direction:column;gap:6px">
@@ -3202,3 +3202,8 @@ window.installPWA = function(){
 </script>
 </body>
 </html>
+
+
+
+
+
