@@ -1271,15 +1271,15 @@ function pgDashboard(){
               const R=58,cx=75,cy=75,stroke=18;
               const circ=2*Math.PI*R;
               let offset=0;
-              const catPalette=["#F43F5E","#06B6D4","#3B82F6","#10B981","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7","#EAB308"];
+              const catPalette=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7"];
               const usedCols=new Set();
               return catPizza.map((s,ci)=>{
                 const pct=s.total/total;
                 const dash=circ*pct-2;
                 const gap=circ-dash-2;
-                // Garante cor única: usa a cor da categoria, mas se já usada ou inválida, pega da paleta
-                let col=s.color&&s.color!=="undefined"&&s.color!=="#F59E0B"?s.color:catPalette[ci%catPalette.length];
-                if(usedCols.has(col)) col=catPalette[(ci+3)%catPalette.length];
+                // Usar cor da categoria. Só fallback se cor for inválida/undefined
+                let col=(s.color&&s.color!=="undefined"&&s.color.startsWith("#"))?s.color:catPalette[ci%catPalette.length];
+                if(usedCols.has(col)) col=catPalette[(ci+5)%catPalette.length];
                 usedCols.add(col);
                 offset+=pct;
                 return`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${col}" stroke-width="${stroke}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(circ*0.25).toFixed(1)}" transform="rotate(${(-90+offset*360-pct*360).toFixed(1)},${cx},${cy})" style="transition:all .5s"/>`;
@@ -1293,10 +1293,10 @@ function pgDashboard(){
         </div>
         <div style="width:100%;display:flex;flex-direction:column;gap:6px">
           ${catPizza.slice(0,5).map((s,ci)=>{
-            const catPal=["#F43F5E","#06B6D4","#3B82F6","#10B981","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7","#EAB308"];
+            const catPal=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7"];
             const tot=catPizza.reduce((a,x)=>a+x.total,0);
             const pct=tot>0?((s.total/tot)*100):0;
-            const col=s.color&&s.color!=="undefined"&&s.color!=="#F59E0B"?s.color:catPal[ci%catPal.length];
+            const col=(s.color&&s.color!=="undefined"&&s.color.startsWith("#"))?s.color:catPal[ci%catPal.length];
             return`<div style="display:flex;align-items:center;gap:7px">
               <div style="width:10px;height:10px;border-radius:3px;background:${col};flex-shrink:0"></div>
               <div style="flex:1;min-width:0">
@@ -3202,8 +3202,3 @@ window.installPWA = function(){
 </script>
 </body>
 </html>
-
-
-
-
-
