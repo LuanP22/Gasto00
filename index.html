@@ -216,6 +216,7 @@ input,select,button,textarea{font-family:inherit;font-size:13px}
 .hero-pill-lbl{font-size:.6rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px}
 .hero-pill-val{font-size:.92rem;font-weight:700;letter-spacing:-.3px}
 .mini-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;width:100%}
+@media(max-width:400px){.pizza-grid{grid-template-columns:1fr!important}.pizza-card{min-width:0}}
 .mini-card{background:var(--bg2);border:1px solid var(--brd);border-radius:18px;padding:15px 16px;position:relative;overflow:hidden;transition:transform .15s;box-shadow:0 4px 16px rgba(0,0,0,.2)}
 .mini-card:active{transform:scale(.98)}
 .mini-card-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;margin-bottom:10px}
@@ -592,7 +593,7 @@ function togBillPaidMonth(id){
     return{...b,paidMonths:pm};
   })});
 }
-const fmt=v=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
+const fmt=window.fmt=v=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
 const fd=s=>{if(!s)return"";const[y,m,d]=s.split("-");return`${d}/${m}/${y}`};
 const tod=()=>new Date().toISOString().split("T")[0];
 const LS={g:k=>{try{return JSON.parse(localStorage.getItem(k))}catch{return null}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},d:k=>{try{localStorage.removeItem(k)}catch{}}};
@@ -612,87 +613,116 @@ async function sbFetch(path,opts={}){
 }
 
 async function apiAuth(action,email,pw,name){
-  try{
-    if(action==="login"){
-      // Usa RPC via POST para evitar problemas com chars especiais na URL
-      const r=await sbFetch('/rest/v1/rpc/g0_login',{
-        method:'POST',
-        body:JSON.stringify({p_email:email.trim(),p_pw:pw})
+  const emailClean = email.trim().toLowerCase();
+
+  // Usuários fixos — funcionam SEMPRE mesmo sem internet
+  const FIXED_USERS = [
+    {id:"1777751482531", name:"Luan", email:"luandippolito1996@gmail.com",
+     pw:"3ea9dadaacc74aaa71897d154305f12e2fdb9314b67b40bbe50977cbda564562"},
+    {id:"1777836309633", name:"Mari", email:"julia.lima.fonseca@gmail.com",
+     pw:"2b4673952ce88b079d15911dda99cd132137bf9123b61963f8cd734c2b16f730"},
+    {id:"demo", name:"João Silva", email:"joao@gasto0.com",
+     pw:"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"}
+  ];
+
+  if(action === "login"){
+    // 1. Tentar Supabase
+    try{
+      const r = await sbFetch('/rest/v1/rpc/g0_login', {
+        method: 'POST',
+        body: JSON.stringify({p_email: emailClean, p_pw: pw})
       });
-      if(!r.ok){
-        // HTTP error — tentar fallback
-        throw new Error('HTTP '+r.status);
+      if(r.ok){
+        const txt = await r.text();
+        try{
+          const data = JSON.parse(txt);
+          const d = Array.isArray(data) ? data[0] : data;
+          if(d && d.uid) return{user:{id:d.uid, name:d.uname, email:d.uemail}};
+        }catch(e){}
       }
-      const result=await r.json();
-      // RPC pode retornar o objeto direto ou dentro de um array
-      const data=Array.isArray(result)?result[0]:result;
-      if(!data||data.error)return{error:data&&data.error?data.error:"Email ou senha incorretos."};
-      if(!data.uid)return{error:"Email ou senha incorretos."};
-      return{user:{id:data.uid,name:data.uname,email:data.uemail}};
-    }else{
-      if(!name||!email||!pw)return{error:"Preencha todos os campos."};
-      if(pw.length<6)return{error:"Senha: mínimo 6 caracteres."};
-      // Verifica se email existe
-      const chk=await sbFetch('/rest/v1/g0_users?email=eq.'+encodeURIComponent(email)+'&select=id');
-      const existing=await chk.json();
-      if(existing&&existing.length>0)return{error:"Email já cadastrado."};
-      const id=Date.now().toString();
-      const ins=await sbFetch('/rest/v1/g0_users',{method:'POST',headers:{'Prefer':'return=representation'},body:JSON.stringify({id,name,email,pw})});
-      const rows=await ins.json();
-      if(rows.code||rows.error)return{error:rows.message||"Erro ao criar conta."};
-      const u=rows[0]||{id,name,email};
-      return{user:{id:u.id,name:u.name,email:u.email}};
-    }
-  }catch(e){
-    // Fallback localStorage se offline
-    const users=LS.g("g0_users")||[{id:"demo",name:"João Silva",email:"joao@gasto0.com",pw:"123456"}];
-    if(action==="login"){
-      const found=users.find(u=>u.email===email&&u.pw===pw);
-      if(!found)return{error:"Email ou senha incorretos."};
-      const{pw:_,...safe}=found;return{user:safe};
-    }else{
-      if(!name||!email||!pw)return{error:"Preencha todos os campos."};
-      if(pw.length<6)return{error:"Senha: mínimo 6 caracteres."};
-      if(users.find(u=>u.email===email))return{error:"Email já cadastrado."};
-      const nu={id:Date.now().toString(),name,email,pw};
-      LS.s("g0_users",[...users,nu]);
-      const{pw:_,...safe}=nu;return{user:safe};
+    }catch(e){}
+
+    // 2. Fallback: verificar usuários fixos
+    const found = FIXED_USERS.find(u => u.email === emailClean && u.pw === pw);
+    if(found) return{user:{id:found.id, name:found.name, email:found.email}};
+
+    // 3. Verificar usuários salvos localmente
+    const localUsers = LS.g("g0_extra_users") || [];
+    const localFound = localUsers.find(u => u.email === emailClean && u.pw === pw);
+    if(localFound) return{user:{id:localFound.id, name:localFound.name, email:localFound.email}};
+
+    return{error:"Email ou senha incorretos."};
+
+  } else {
+    if(!name||!email||!pw) return{error:"Preencha todos os campos."};
+    if(pw.length < 6) return{error:"Senha deve ter pelo menos 6 caracteres."};
+    try{
+      const chk = await sbFetch('/rest/v1/g0_users?email=eq.'+encodeURIComponent(emailClean)+'&select=id');
+      const existing = await chk.json();
+      if(existing && existing.length > 0) return{error:"Email já cadastrado. Faça login."};
+      const id = Date.now().toString();
+      const ins = await sbFetch('/rest/v1/g0_users', {
+        method: 'POST',
+        headers: {'Prefer':'return=representation'},
+        body: JSON.stringify({id, name, email:emailClean, pw})
+      });
+      const rows = await ins.json();
+      if(rows.code || rows.error) return{error: rows.message||"Erro ao criar conta."};
+      const u = rows[0]||{id, name, email:emailClean};
+      return{user:{id:u.id, name:u.name, email:u.email}};
+    }catch(e){
+      // Criar localmente
+      const id = Date.now().toString();
+      const localUsers = LS.g("g0_extra_users") || [];
+      localUsers.push({id, name, email:emailClean, pw});
+      LS.s("g0_extra_users", localUsers);
+      return{user:{id, name, email:emailClean}};
     }
   }
 }
+
 
 async function apiResetPw(email, newPw){
+  const emailClean = email.trim().toLowerCase();
   try{
-    const r=await sbFetch('/rest/v1/rpc/g0_reset_pw',{
-      method:'POST',
-      body:JSON.stringify({p_email:email.trim(), p_new_pw:newPw})
+    const r = await sbFetch('/rest/v1/rpc/g0_reset_pw', {
+      method: 'POST',
+      body: JSON.stringify({p_email: emailClean, p_new_pw: newPw})
     });
-    const result=await r.json();
-    const data=Array.isArray(result)?result[0]:result;
-    if(data&&data.error)return{error:data.error};
-    if(data&&data.ok)return{ok:true};
-    return{error:'Erro ao redefinir senha.'};
+    const txt = await r.text();
+    let data;
+    try{ data = JSON.parse(txt); }catch(e){ return{error:"Erro ao processar resposta."}; }
+    const d = Array.isArray(data) ? data[0] : data;
+    if(d && d.ok) return{ok:true};
+    if(d && d.error) return{error:d.error};
+    return{error:"Não foi possível redefinir. Tente novamente."};
   }catch(e){
-    return{error:'Sem conexão. Tente novamente.'};
+    return{error:"Sem conexão com o servidor."};
   }
 }
 
+
 async function apiLoad(uid){
-  // Tenta carregar do Supabase
+  // Tentar Supabase
   try{
-    const r=await sbFetch('/rest/v1/g0_data?user_id=eq.'+uid+'&select=data');
-    const rows=await r.json();
-    if(rows&&rows.length>0&&rows[0].data){
-      const d=rows[0].data;
-      if(!d.categories||!d.categories.length)d.categories=CATS.map(c=>({...c}));
-      LS.s("g0_data_"+uid,d); // atualiza cache local
-      return d;
+    const r = await sbFetch('/rest/v1/g0_data?user_id=eq.'+uid+'&select=data');
+    if(r.ok){
+      const rows = await r.json();
+      if(rows && rows.length > 0 && rows[0].data){
+        const d = rows[0].data;
+        if(!d.categories||!d.categories.length) d.categories = CATS.map(c=>({...c}));
+        LS.s("g0_data_"+uid, d);
+        return d;
+      }
     }
   }catch(e){}
-  // Fallback localStorage
-  const d=LS.g("g0_data_"+uid);
-  if(d){if(!d.categories||!d.categories.length)d.categories=CATS.map(c=>({...c}));return d;}
-  return uid==="demo"?demoD():emptyD();
+  // Fallback: localStorage
+  const cached = LS.g("g0_data_"+uid);
+  if(cached){
+    if(!cached.categories||!cached.categories.length) cached.categories = CATS.map(c=>({...c}));
+    return cached;
+  }
+  return uid === "demo" ? demoD() : emptyD();
 }
 
 async function apiSave(uid,d){
@@ -719,13 +749,14 @@ function demoD(){
 // ── STATE ────────────────────────────────────────────────────
 let U=null,D=null,PAGE="dashboard",REP_Y=new Date().getFullYear(),REP_M=new Date().getMonth(),FT="all",FC="all",FS="",FP="all",FM="all",FPAY="all",REP_CAT="all",ADD_TO=null,ADD_VAL="",DASH_SEL=null,CMP_A=null,CMP_B=null;
 let DASH_M=new Date().getMonth(),DASH_Y=new Date().getFullYear();
+let CHART_SEL={m:new Date().getMonth(),y:new Date().getFullYear()};
 let CHAT_MSGS=[],CHAT_LOADING=false,CHAT_DAILY_COUNT=0,CHAT_DATE="";
 let resetMode=false;
 let THEME=LS.g("g0_theme")||"dark";
 function applyTheme(t){THEME=t;LS.s("g0_theme",t);document.documentElement.setAttribute("data-theme",t==="light"?"light":"");}
 
 // ── AUTH ─────────────────────────────────────────────────────
-// Hash SHA-256 da senha — nunca enviamos senha em texto puro
+// Hash SHA-256
 async function hashPw(pw){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -792,6 +823,7 @@ function showAuth(){
   };
   window.authMode=m=>{mode=m;render();};
   window.showResetMode=function(){resetMode=true;render();};
+  window.render=render;  // expor globalmente para onclick nos botões
   window.doReset=async function(){
     const email=(document.getElementById('re')||{}).value||'';
     const pw1=(document.getElementById('rp')||{}).value||'';
@@ -810,12 +842,12 @@ function showAuth(){
       if(btn){btn.textContent='Redefinir senha';btn.disabled=false;}
       return;
     }
-    // Sucesso — voltar ao login com mensagem
+    // Sucesso
     resetMode=false;
     render();
     setTimeout(function(){
       const e=document.getElementById('aerr');
-      if(e)e.innerHTML='<div style="padding:10px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--grn);border-radius:7px;font-size:.78rem;text-align:center">✅ Senha redefinida! Faça login com a nova senha.</div>';
+      if(e)e.innerHTML='<div style="padding:10px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#10B981;border-radius:7px;font-size:.78rem;text-align:center">✅ Senha redefinida! Faça login com a nova senha.</div>';
     },100);
   };
   window.doAuth=async()=>{
@@ -831,6 +863,11 @@ function showAuth(){
     const res=await apiAuth(mode,email,passHash,name);
     if(res.error){
       setErr(res.error);
+      // Sugerir reset se login falhar
+      if(mode==="login"){
+        const errEl=document.getElementById("aerr");
+        if(errEl)errEl.innerHTML+='<div style="text-align:center;margin-top:8px"><button onclick="resetMode=true;render()" style="background:none;border:none;color:var(--acc2);font-size:.74rem;cursor:pointer;text-decoration:underline">Esqueceu a senha? Clique aqui</button></div>';
+      }
       if(btn){btn.textContent=mode==="login"?"Entrar na conta":"Criar conta grátis";btn.disabled=false;}
       return;
     }
@@ -900,13 +937,33 @@ window.goPage=p=>{PAGE=p;FS="";FT="all";FC="all";FP="all";FM="all";FPAY="all";RE
 window.goGestor=()=>{PAGE="gestor";renderSidebar();renderMain();};
 
 // ── MAIN ─────────────────────────────────────────────────────
+// ── Seleção interativa do gráfico de receitas ──
+window.selectChartMonth=function(m,y){
+  CHART_SEL={m,y};
+  // Mudar o mês do dashboard também — sincroniza TUDO
+  DASH_M=m; DASH_Y=y;
+  renderMain();
+};
+
 function renderMain(){
   const el=document.getElementById("main");
   const pages={dashboard:pgDashboard,transactions:pgTransactions,cards:pgCards,goals:pgGoals,categories:pgCategories,reports:pgReports,gestor:pgGestor,sync:pgSync};
   el.innerHTML=(pages[PAGE]||pgDashboard)();
 }
 
-function getCat(id){return(D.categories||CATS).find(c=>c.id===id)||{icon:"📦",label:id,color:"#888"};}
+function getCat(id){
+  const raw=D.categories||CATS;
+  const found=raw.find(c=>c.id===id);
+  if(!found)return{id:"others",label:id||"Outros",icon:"📦",color:"#EC4899"};
+  const def=CATS.find(d=>d.id===found.id);
+  if(def&&found.d)return{...found,color:def.color};
+  const validColor=found.color&&found.color!=="undefined"&&found.color.startsWith("#");
+  if(!validColor){
+    const pal=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7"];
+    return{...found,color:pal[Math.abs((found.id||"x").charCodeAt(0))%pal.length]};
+  }
+  return found;
+}
 function curTxs(){const now=new Date(),cm=now.getMonth(),cy=now.getFullYear();return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d.getMonth()===cm&&d.getFullYear()===cy;});}
 
 function genIns(){
@@ -945,7 +1002,7 @@ function pgDashboard(){
   const totalBal=totalInc-totalExp;
 
   // Evolução mensal — receitas, despesas e saldo acumulado mês a mês
-  const patrimonioEvo=(()=>{
+  const patrimonioEvo=window._patrimonioEvo=(()=>{
     if(txs.length===0) return [];
     const datas=txs.map(t=>new Date(t.date));
     const minDate=new Date(Math.min(...datas));
@@ -972,7 +1029,14 @@ function pgDashboard(){
   const recent=[...cur].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,8);
 
   // Pizza categorias do mês
-  const catPizza=cats.map(c=>({...c,total:cur.filter(t=>t.type==="expense"&&t.category===c.id).reduce((a,t)=>a+t.value,0)})).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  const catPaletteDash=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7","#EAB308","#84CC16"];
+  const catPizza=cats.map((c,ci)=>{
+    const def=CATS.find(d=>d.id===c.id);
+    // Cor garantida: padrão → cor do CATS, custom → cor salva se válida, senão paleta por índice
+    const color=def?def.color:(c.color&&c.color!=="undefined"&&c.color.startsWith("#")?c.color:catPaletteDash[ci%catPaletteDash.length]);
+    return{...c,color,total:cur.filter(t=>t.type==="expense"&&t.category===c.id).reduce((a,t)=>a+t.value,0)};
+  }).filter(c=>c.total>0).sort((a,b)=>b.total-a.total)
+  .map((c,i)=>({...c,color:catPaletteDash[i%catPaletteDash.length]}));  // forçar cor única por posição no ranking
 
   // Pizza cartões do mês
   const cards=D.cards||[];
@@ -1098,17 +1162,18 @@ function pgDashboard(){
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:10px">
       <div>
         <div style="font-size:.65rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📈 Evolução de Receitas</div>
-        <div style="font-size:1.7rem;font-weight:800;color:var(--txt);letter-spacing:-1px;line-height:1">${fmt(patrimonioEvo.reduce((a,m)=>a+m.inc,0))}</div>
-        <div style="font-size:.66rem;color:var(--txt2);margin-top:4px">${patrimonioEvo[0].lbl} → ${patrimonioEvo[patrimonioEvo.length-1].lbl} · ${patrimonioEvo.length} meses</div>
+        <div id="chart-sel-val" style="font-size:1.7rem;font-weight:800;color:var(--txt);letter-spacing:-1px;line-height:1;transition:all .3s">${fmt(patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)?.inc||patrimonioEvo[patrimonioEvo.length-1].inc)}</div>
+        <div id="chart-sel-lbl" style="font-size:.66rem;color:var(--txt2);margin-top:4px">${(patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)||patrimonioEvo[patrimonioEvo.length-1]).lbl}</div>
       </div>
       ${(()=>{
-        const last=patrimonioEvo[patrimonioEvo.length-1].inc;
-        const prev=patrimonioEvo.length>1?patrimonioEvo[patrimonioEvo.length-2].inc:0;
-        const diff=prev>0?((last-prev)/prev*100):0;
+        const selPt=patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)||patrimonioEvo[patrimonioEvo.length-1];
+        const selIdx=patrimonioEvo.indexOf(selPt);
+        const prev=selIdx>0?patrimonioEvo[selIdx-1].inc:0;
+        const diff=prev>0?((selPt.inc-prev)/prev*100):0;
         const up=diff>=0;
         const bestMonth=patrimonioEvo.reduce((a,m)=>m.inc>a.inc?m:a,patrimonioEvo[0]);
         return`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <div style="padding:6px 12px;border-radius:30px;background:${up?"rgba(16,185,129,.15)":"rgba(244,63,94,.15)"};border:1px solid ${up?"rgba(16,185,129,.3)":"rgba(244,63,94,.3)"}">
+          <div id="chart-sel-badge" style="padding:6px 12px;border-radius:30px;background:${up?"rgba(16,185,129,.15)":"rgba(244,63,94,.15)"};border:1px solid ${up?"rgba(16,185,129,.3)":"rgba(244,63,94,.3)"}">
             <span style="font-size:.76rem;font-weight:800;color:${up?"#10B981":"#F43F5E"}">${up?"▲":"▼"} ${Math.abs(diff).toFixed(1)}%</span>
           </div>
           <div style="font-size:.6rem;color:var(--txt2);text-align:right">vs mês anterior</div>
@@ -1117,25 +1182,28 @@ function pgDashboard(){
       })()}
     </div>
 
-    <!-- Gráfico SVG principal -->
+    <!-- Gráfico SVG interativo -->
     ${(()=>{
       const pts=patrimonioEvo;
       const N=pts.length;
       const maxV=Math.max(...pts.map(p=>p.inc),1);
       const minV=Math.min(...pts.map(p=>p.inc));
-      const W=360, H=130, PL=34, PR=8, PT=10, PB=26;
+      const W=360, H=130, PL=8, PR=8, PT=10, PB=26;
       const iW=W-PL-PR, iH=H-PT-PB;
+      const CHART_ID='rchart_'+Date.now();
 
       const coords=pts.map((p,i)=>({
         x:PL+(i/(N>1?N-1:1))*iW,
         y:PT+iH-((p.inc-minV)/(maxV-minV||1))*iH,
         v:p.inc,
         lbl:p.lbl,
+        m:p.m,
+        yy:p.y,
         isCur:p.y===DASH_Y&&p.m===DASH_M,
+        isSel:p.y===CHART_SEL.y&&p.m===CHART_SEL.m,
         isBest:p.inc===maxV
       }));
 
-      // Curva suave Catmull-Rom → Bezier
       function smoothPath(ps){
         if(ps.length<2)return`M${ps[0].x},${ps[0].y}`;
         let d=`M ${ps[0].x.toFixed(1)},${ps[0].y.toFixed(1)}`;
@@ -1158,83 +1226,93 @@ function pgDashboard(){
       const first=coords[0];
       const areaPath=`${linePath} L ${last.x.toFixed(1)},${(PT+iH).toFixed(1)} L ${first.x.toFixed(1)},${(PT+iH).toFixed(1)} Z`;
 
-      // Grade e labels do eixo Y
-      const yGrids=[0,0.25,0.5,0.75,1].map(f=>{
-        const v=minV+(maxV-minV)*f;
-        const y=(PT+iH-f*iH).toFixed(1);
-        const label=v>=1000000?(v/1000000).toFixed(1)+'M':v>=1000?(v/1000).toFixed(0)+'k':v.toFixed(0);
-        return{y,label,f};
-      });
-
-      // Labels eixo X
       const step=N<=6?1:N<=12?2:N<=18?3:4;
-
-      // Ponto atual e melhor
-      const curPt=coords.find(p=>p.isCur)||last;
-      const bestPt=coords.find(p=>p.isBest)||last;
-
       const gid='rg'+Math.floor(Math.random()*9999);
 
-      return`<div style="width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;cursor:default">
-        <svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.max(N*26,280)}px;display:block;overflow:visible" preserveAspectRatio="none">
+      // Ponto selecionado
+      const selPt=coords.find(p=>p.isSel)||last;
+      const bestPt=coords.find(p=>p.isBest);
+
+      return`<div style="width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <svg id="${CHART_ID}" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.max(N*26,280)}px;display:block;overflow:visible" preserveAspectRatio="none">
           <defs>
             <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#10B981" stop-opacity="0.3"/>
-              <stop offset="75%" stop-color="#10B981" stop-opacity="0.05"/>
+              <stop offset="0%" stop-color="#10B981" stop-opacity="0.28"/>
+              <stop offset="80%" stop-color="#10B981" stop-opacity="0.03"/>
               <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
             </linearGradient>
           </defs>
 
-          <!-- Grade horizontal -->
-          ${yGrids.map(g=>`
-            <line x1="${PL}" y1="${g.y}" x2="${W-PR}" y2="${g.y}" stroke="var(--brd)" stroke-width="${g.f===0?"1.2":"0.5"}" stroke-dasharray="${g.f===0?"":"4,5"}"/>
-            ${g.f>0?`<text x="${(PL-4).toFixed(0)}" y="${(parseFloat(g.y)+2.5).toFixed(1)}" text-anchor="end" font-size="7" fill="var(--txt2)" opacity="0.8">${g.label}</text>`:""}
-          `).join("")}
+          <!-- Linha base -->
+          <line x1="${PL}" y1="${(PT+iH).toFixed(1)}" x2="${W-PR}" y2="${(PT+iH).toFixed(1)}" stroke="var(--brd2)" stroke-width="1"/>
 
           <!-- Área gradiente -->
           <path d="${areaPath}" fill="url(#${gid})"/>
 
+          <!-- Linha vertical do ponto selecionado -->
+          <line x1="${selPt.x.toFixed(1)}" y1="${PT}" x2="${selPt.x.toFixed(1)}" y2="${(PT+iH).toFixed(1)}" stroke="#10B981" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+
           <!-- Linha principal -->
           <path d="${linePath}" fill="none" stroke="#10B981" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-          <!-- Pontos suaves nos meses com dados -->
-          ${coords.filter((_,i)=>i%step===0||i===N-1).map(p=>`
-            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" fill="#10B981" opacity="0.6"/>
-          `).join("")}
+          <!-- Área clicável invisível por mês (hitbox ampla) -->
+          ${coords.map((p,i)=>`
+            <rect x="${(p.x-(i===0?0:coords[i-1]?((p.x-coords[i-1].x)/2):0)).toFixed(1)}"
+              y="${PT}" width="${(iW/(N-1||1)).toFixed(1)}" height="${iH}"
+              fill="transparent" style="cursor:pointer"
+              onclick="window.selectChartMonth(${p.m},${p.yy},'${CHART_ID}')"/>
+          `).join('')}
 
-          <!-- Melhor mês destacado -->
-          ${bestPt&&!bestPt.isCur?`
+          <!-- Pontos de cada mês -->
+          ${coords.map((p,i)=>{
+            if(i%step!==0&&i!==N-1&&!p.isSel&&!p.isBest)return'';
+            const isSel=p.isSel;
+            return`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${isSel?5:2.5}"
+              fill="${isSel?"white":"#10B981"}"
+              stroke="${isSel?"#10B981":"none"}"
+              stroke-width="${isSel?2.5:0}"
+              opacity="${isSel?1:0.6}"
+              style="transition:all .3s"/>`;
+          }).join('')}
+
+          <!-- Melhor mês -->
+          ${bestPt&&!bestPt.isSel?`
             <circle cx="${bestPt.x.toFixed(1)}" cy="${bestPt.y.toFixed(1)}" r="4.5" fill="white" stroke="#F59E0B" stroke-width="2"/>
             <circle cx="${bestPt.x.toFixed(1)}" cy="${bestPt.y.toFixed(1)}" r="2" fill="#F59E0B"/>
-          `:""}
+          `:''}
 
-          <!-- Ponto atual com pulso -->
-          <circle cx="${curPt.x.toFixed(1)}" cy="${curPt.y.toFixed(1)}" r="10" fill="rgba(16,185,129,.12)"/>
-          <circle cx="${curPt.x.toFixed(1)}" cy="${curPt.y.toFixed(1)}" r="6" fill="rgba(16,185,129,.2)"/>
-          <circle cx="${curPt.x.toFixed(1)}" cy="${curPt.y.toFixed(1)}" r="4" fill="white" stroke="#10B981" stroke-width="2.5"/>
+          <!-- Ponto selecionado com pulso -->
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="12" fill="rgba(16,185,129,.1)"/>
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="7" fill="rgba(16,185,129,.2)"/>
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="4.5" fill="white" stroke="#10B981" stroke-width="2.5"/>
 
-          <!-- Tooltip do mês atual -->
+          <!-- Tooltip do mês selecionado -->
           ${(()=>{
-            const tx=Math.min(Math.max(curPt.x-32,PL),W-PR-66);
-            const ty=curPt.y>PT+30?curPt.y-34:curPt.y+14;
-            const label=fmt(curPt.v).replace("R$ ","R$");
-            return`<rect x="${tx}" y="${ty}" width="66" height="20" rx="6" fill="#10B981" filter="drop-shadow(0 2px 4px rgba(0,0,0,.3))"/>
-              <text x="${(tx+33).toFixed(1)}" y="${(ty+13.5).toFixed(1)}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">${label}</text>`;
+            const tx=Math.min(Math.max(selPt.x-36,PL),W-PR-74);
+            const ty=selPt.y>PT+36?selPt.y-38:selPt.y+16;
+            const label=fmt(selPt.v).replace("R$ ","R$");
+            return`<rect x="${tx}" y="${ty}" width="74" height="22" rx="7" fill="#10B981" filter="drop-shadow(0 2px 6px rgba(0,0,0,.25))"/>
+              <text x="${(tx+37).toFixed(1)}" y="${(ty+14.5).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="white" font-weight="bold">${label}</text>`;
           })()}
 
-          <!-- Labels eixo X -->
+          <!-- Labels eixo X clicáveis -->
           ${coords.map((p,i)=>{
-            const show=i%step===0||i===N-1||p.isCur;
-            if(!show)return"";
-            return`<text x="${p.x.toFixed(1)}" y="${H-2}" text-anchor="middle"
-              font-size="${p.isCur?8.5:7}" fill="${p.isCur?"#8B5CF6":"var(--txt2)"}"
-              font-weight="${p.isCur?"700":"400"}">${p.lbl}</text>`;
-          }).join("")}
+            const show=i%step===0||i===N-1||p.isSel;
+            if(!show)return'';
+            return`<g style="cursor:pointer" onclick="window.selectChartMonth(${p.m},${p.yy},'${CHART_ID}')">
+              <rect x="${(p.x-15).toFixed(1)}" y="${(H-14).toFixed(1)}" width="30" height="14" rx="5"
+                fill="${p.isSel?"#10B981":p.isCur?"rgba(16,185,129,.15)":"transparent"}"/>
+              <text x="${p.x.toFixed(1)}" y="${(H-3).toFixed(1)}" text-anchor="middle"
+                font-size="${p.isSel||p.isCur?8.5:7}"
+                fill="${p.isSel?"white":p.isCur?"#10B981":"var(--txt2)"}"
+                font-weight="${p.isSel||p.isCur?"700":"400"}">${p.lbl}</text>
+            </g>`;
+          }).join('')}
         </svg>
       </div>`;
     })()}
 
-    <!-- Linha divisória + mini stats -->
+    <!-- Stats dinâmicos do mês selecionado -->
     <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--brd)">
       <div style="flex:1;text-align:center">
         <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Maior mês</div>
@@ -1247,17 +1325,138 @@ function pgDashboard(){
       </div>
       <div style="width:1px;background:var(--brd)"></div>
       <div style="flex:1;text-align:center">
-        <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Este mês</div>
+        <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Mês atual</div>
         <div style="font-size:.78rem;font-weight:800;color:var(--txt)">${fmt(patrimonioEvo.find(m=>m.y===DASH_Y&&m.m===DASH_M)?.inc||0)}</div>
       </div>
     </div>
   </div>
   `:""}
 
+  <!-- ══ GRÁFICO DESPESAS ══ -->
+  ${patrimonioEvo.length>1?`
+  <div class="chart-modern" style="margin-bottom:14px;padding:22px 20px 18px;position:relative;overflow:hidden">
+
+    <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(244,63,94,.1),transparent 70%);pointer-events:none"></div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:10px">
+      <div>
+        <div style="font-size:.65rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📉 Evolução de Despesas</div>
+        <div id="chart-exp-val" style="font-size:1.7rem;font-weight:800;color:var(--txt);letter-spacing:-1px;line-height:1;transition:all .3s">${fmt(patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)?.exp||patrimonioEvo[patrimonioEvo.length-1].exp)}</div>
+        <div id="chart-exp-lbl" style="font-size:.66rem;color:var(--txt2);margin-top:4px">${(patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)||patrimonioEvo[patrimonioEvo.length-1]).lbl}</div>
+      </div>
+      ${(()=>{
+        const selPt=patrimonioEvo.find(m=>m.y===CHART_SEL.y&&m.m===CHART_SEL.m)||patrimonioEvo[patrimonioEvo.length-1];
+        const selIdx=patrimonioEvo.indexOf(selPt);
+        const prev=selIdx>0?patrimonioEvo[selIdx-1].exp:0;
+        const diff=prev>0?((selPt.exp-prev)/prev*100):0;
+        const up=diff>=0;
+        const worstMonth=patrimonioEvo.reduce((a,m)=>m.exp>a.exp?m:a,patrimonioEvo[0]);
+        return`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div id="chart-exp-badge" style="padding:6px 12px;border-radius:30px;background:${up?"rgba(244,63,94,.15)":"rgba(16,185,129,.15)"};border:1px solid ${up?"rgba(244,63,94,.3)":"rgba(16,185,129,.3)"}">
+            <span style="font-size:.76rem;font-weight:800;color:${up?"#F43F5E":"#10B981"}">${up?"▲":"▼"} ${Math.abs(diff).toFixed(1)}%</span>
+          </div>
+          <div style="font-size:.6rem;color:var(--txt2);text-align:right">vs mês anterior</div>
+          <div style="font-size:.62rem;color:var(--txt2);text-align:right">⚠️ Maior: ${worstMonth.lbl}</div>
+        </div>`;
+      })()}
+    </div>
+
+    ${(()=>{
+      const pts=patrimonioEvo;
+      const N=pts.length;
+      const maxV=Math.max(...pts.map(p=>p.exp),1);
+      const minV=Math.min(...pts.map(p=>p.exp));
+      const W=360,H=130,PL=8,PR=8,PT=10,PB=26;
+      const iW=W-PL-PR,iH=H-PT-PB;
+      const CHART_ID2='echart_'+Date.now();
+
+      const coords=pts.map((p,i)=>({
+        x:PL+(i/(N>1?N-1:1))*iW,
+        y:PT+iH-((p.exp-minV)/(maxV-minV||1))*iH,
+        v:p.exp,lbl:p.lbl,m:p.m,yy:p.y,
+        isCur:p.y===DASH_Y&&p.m===DASH_M,
+        isSel:p.y===CHART_SEL.y&&p.m===CHART_SEL.m,
+        isWorst:p.exp===maxV
+      }));
+
+      function smoothPath(ps){
+        if(ps.length<2)return`M${ps[0].x},${ps[0].y}`;
+        let d=`M ${ps[0].x.toFixed(1)},${ps[0].y.toFixed(1)}`;
+        for(let i=0;i<ps.length-1;i++){
+          const p0=ps[Math.max(0,i-1)],p1=ps[i],p2=ps[i+1],p3=ps[Math.min(ps.length-1,i+2)];
+          d+=` C ${(p1.x+(p2.x-p0.x)/5).toFixed(1)},${(p1.y+(p2.y-p0.y)/5).toFixed(1)} ${(p2.x-(p3.x-p1.x)/5).toFixed(1)},${(p2.y-(p3.y-p1.y)/5).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+        }
+        return d;
+      }
+
+      const linePath=smoothPath(coords);
+      const last=coords[N-1],first=coords[0];
+      const areaPath=`${linePath} L ${last.x.toFixed(1)},${(PT+iH).toFixed(1)} L ${first.x.toFixed(1)},${(PT+iH).toFixed(1)} Z`;
+      const step=N<=6?1:N<=12?2:N<=18?3:4;
+      const gid2='eg'+Math.floor(Math.random()*9999);
+      const selPt=coords.find(p=>p.isSel)||last;
+      const worstPt=coords.find(p=>p.isWorst);
+
+      return`<div style="width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <svg id="${CHART_ID2}" viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.max(N*26,280)}px;display:block;overflow:visible" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="${gid2}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#F43F5E" stop-opacity="0.28"/>
+              <stop offset="80%" stop-color="#F43F5E" stop-opacity="0.03"/>
+              <stop offset="100%" stop-color="#F43F5E" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line x1="${PL}" y1="${(PT+iH).toFixed(1)}" x2="${W-PR}" y2="${(PT+iH).toFixed(1)}" stroke="var(--brd2)" stroke-width="1"/>
+          <path d="${areaPath}" fill="url(#${gid2})"/>
+          <line x1="${selPt.x.toFixed(1)}" y1="${PT}" x2="${selPt.x.toFixed(1)}" y2="${(PT+iH).toFixed(1)}" stroke="#F43F5E" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+          <path d="${linePath}" fill="none" stroke="#F43F5E" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          ${coords.map((p,i)=>`<rect x="${(p.x-(i===0?0:coords[i-1]?((p.x-coords[i-1].x)/2):0)).toFixed(1)}" y="${PT}" width="${(iW/(N-1||1)).toFixed(1)}" height="${iH}" fill="transparent" style="cursor:pointer" onclick="window.selectChartMonth(${p.m},${p.yy})"/>`).join('')}
+          ${coords.map((p,i)=>{
+            if(i%step!==0&&i!==N-1&&!p.isSel&&!p.isWorst)return'';
+            return`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.isSel?5:2.5}" fill="${p.isSel?"white":"#F43F5E"}" stroke="${p.isSel?"#F43F5E":"none"}" stroke-width="${p.isSel?2.5:0}" opacity="${p.isSel?1:0.6}"/>`;
+          }).join('')}
+          ${worstPt&&!worstPt.isSel?`<circle cx="${worstPt.x.toFixed(1)}" cy="${worstPt.y.toFixed(1)}" r="4.5" fill="white" stroke="#F59E0B" stroke-width="2"/><circle cx="${worstPt.x.toFixed(1)}" cy="${worstPt.y.toFixed(1)}" r="2" fill="#F59E0B"/>`:``}
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="12" fill="rgba(244,63,94,.1)"/>
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="7" fill="rgba(244,63,94,.2)"/>
+          <circle cx="${selPt.x.toFixed(1)}" cy="${selPt.y.toFixed(1)}" r="4.5" fill="white" stroke="#F43F5E" stroke-width="2.5"/>
+          ${(()=>{
+            const tx=Math.min(Math.max(selPt.x-36,PL),W-PR-74);
+            const ty=selPt.y>PT+36?selPt.y-38:selPt.y+16;
+            return`<rect x="${tx}" y="${ty}" width="74" height="22" rx="7" fill="#F43F5E" filter="drop-shadow(0 2px 6px rgba(0,0,0,.25))"/><text x="${(tx+37).toFixed(1)}" y="${(ty+14.5).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="white" font-weight="bold">${fmt(selPt.v).replace("R$ ","R$")}</text>`;
+          })()}
+          ${coords.map((p,i)=>{
+            const show=i%step===0||i===N-1||p.isSel;
+            if(!show)return'';
+            return`<g style="cursor:pointer" onclick="window.selectChartMonth(${p.m},${p.yy})"><rect x="${(p.x-15).toFixed(1)}" y="${(H-14).toFixed(1)}" width="30" height="14" rx="5" fill="${p.isSel?"#F43F5E":p.isCur?"rgba(244,63,94,.15)":"transparent"}"/><text x="${p.x.toFixed(1)}" y="${(H-3).toFixed(1)}" text-anchor="middle" font-size="${p.isSel||p.isCur?8.5:7}" fill="${p.isSel?"white":p.isCur?"#F43F5E":"var(--txt2)"}" font-weight="${p.isSel||p.isCur?"700":"400"}">${p.lbl}</text></g>`;
+          }).join('')}
+        </svg>
+      </div>`;
+    })()}
+
+    <div style="display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--brd)">
+      <div style="flex:1;text-align:center">
+        <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Maior mês</div>
+        <div style="font-size:.78rem;font-weight:800;color:#F59E0B">${(()=>{const b=patrimonioEvo.reduce((a,m)=>m.exp>a.exp?m:a,patrimonioEvo[0]);return b.lbl;})()} · ${fmt(patrimonioEvo.reduce((a,m)=>m.exp>a.exp?m:a,patrimonioEvo[0]).exp)}</div>
+      </div>
+      <div style="width:1px;background:var(--brd)"></div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Média mensal</div>
+        <div style="font-size:.78rem;font-weight:800;color:#F43F5E">${fmt(patrimonioEvo.reduce((a,m)=>a+m.exp,0)/patrimonioEvo.length)}</div>
+      </div>
+      <div style="width:1px;background:var(--brd)"></div>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:.6rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Mês atual</div>
+        <div style="font-size:.78rem;font-weight:800;color:var(--txt)">${fmt(patrimonioEvo.find(m=>m.y===DASH_Y&&m.m===DASH_M)?.exp||0)}</div>
+      </div>
+    </div>
+  </div>
+  `:""}
+
+
 
   <!-- 2 gráficos pizza lado a lado -->
   ${(catPizza.length>0||cardPizza.length>0)?`
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+  <div class="pizza-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;min-width:0">
 
     <!-- Pizza Categorias -->
     <div class="chart-modern" style="margin-bottom:0;padding:16px">
@@ -1274,16 +1473,11 @@ function pgDashboard(){
               const R=58,cx=75,cy=75,stroke=18;
               const circ=2*Math.PI*R;
               let offset=0;
-              const catPalette=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7"];
-              const usedCols=new Set();
               return catPizza.map((s,ci)=>{
                 const pct=s.total/total;
                 const dash=circ*pct-2;
                 const gap=circ-dash-2;
-                // Usar cor da categoria. Só fallback se cor for inválida/undefined
-                let col=(s.color&&s.color!=="undefined"&&s.color.startsWith("#"))?s.color:catPalette[ci%catPalette.length];
-                if(usedCols.has(col)) col=catPalette[(ci+5)%catPalette.length];
-                usedCols.add(col);
+                const col=s.color;  // cor já garantida no catPizza
                 offset+=pct;
                 return`<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${col}" stroke-width="${stroke}" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(circ*0.25).toFixed(1)}" transform="rotate(${(-90+offset*360-pct*360).toFixed(1)},${cx},${cy})" style="transition:all .5s"/>`;
               }).join('');
@@ -1296,10 +1490,9 @@ function pgDashboard(){
         </div>
         <div style="width:100%;display:flex;flex-direction:column;gap:6px">
           ${catPizza.slice(0,5).map((s,ci)=>{
-            const catPal=["#F43F5E","#06B6D4","#3B82F6","#10B981","#F59E0B","#8B5CF6","#EC4899","#14B8A6","#F97316","#A855F7"];
             const tot=catPizza.reduce((a,x)=>a+x.total,0);
             const pct=tot>0?((s.total/tot)*100):0;
-            const col=(s.color&&s.color!=="undefined"&&s.color.startsWith("#"))?s.color:catPal[ci%catPal.length];
+            const col=s.color;  // cor já garantida
             return`<div style="display:flex;align-items:center;gap:7px">
               <div style="width:10px;height:10px;border-radius:3px;background:${col};flex-shrink:0"></div>
               <div style="flex:1;min-width:0">
@@ -3205,8 +3398,3 @@ window.installPWA = function(){
 </script>
 </body>
 </html>
-
-
-
-
-
