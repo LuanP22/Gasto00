@@ -2169,15 +2169,21 @@ function pgReports(){
     <!-- Seletores de mês -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
-        <div style="font-size:.62rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Mês A</div>
-        <select class="inp" style="width:100%;font-size:.76rem;padding:9px 10px;border-radius:10px" onchange="CMP_A=this.value;renderMain()">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <div style="width:12px;height:12px;border-radius:3px;background:#F59E0B"></div>
+          <span style="font-size:.62rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Mês A</span>
+        </div>
+        <select class="inp" style="width:100%;font-size:.76rem;padding:9px 10px;border-radius:10px;border:2px solid #F59E0B44" onchange="CMP_A=this.value;renderMain()">
           <option value="">Selecione...</option>
           ${allMonths.map(mo=>{const key=mo.y+'-'+mo.m;return`<option value="${key}"${CMP_A===key?' selected':''}>${MONTHS[mo.m]} ${mo.y}</option>`;}).join('')}
         </select>
       </div>
       <div>
-        <div style="font-size:.62rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Mês B</div>
-        <select class="inp" style="width:100%;font-size:.76rem;padding:9px 10px;border-radius:10px" onchange="CMP_B=this.value;renderMain()">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <div style="width:12px;height:12px;border-radius:3px;background:#8B5CF6"></div>
+          <span style="font-size:.62rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Mês B</span>
+        </div>
+        <select class="inp" style="width:100%;font-size:.76rem;padding:9px 10px;border-radius:10px;border:2px solid #8B5CF644" onchange="CMP_B=this.value;renderMain()">
           <option value="">Selecione...</option>
           ${allMonths.map(mo=>{const key=mo.y+'-'+mo.m;return`<option value="${key}"${CMP_B===key?' selected':''}>${MONTHS[mo.m]} ${mo.y}</option>`;}).join('')}
         </select>
@@ -2206,101 +2212,94 @@ function pgReports(){
       const totB=txsB.reduce((s,t)=>s+t.value,0);
       const lblA=MONTHS[am]+'/'+String(ay).slice(2);
       const lblB=MONTHS[bm]+'/'+String(by).slice(2);
-      const colA=TYPE==='income'?'#10B981':'#F43F5E';
-      const colB=TYPE==='income'?'#34D399':'#FB7185';
+
+      // Cores fixas: A=amarelo, B=roxo
+      const colA='#F59E0B';
+      const colB='#8B5CF6';
+
       const diff=totB-totA;
       const diffPct=totA>0?((diff/totA)*100):0;
 
       // Totais
       const totHtml=`<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:20px">
-        <div style="background:${colA}22;border:1px solid ${colA}44;border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase;margin-bottom:4px">${lblA}</div>
+        <div style="background:${colA}22;border:2px solid ${colA}55;border-radius:12px;padding:12px;text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:4px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${colA}"></div>
+            <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase">${lblA}</div>
+          </div>
           <div style="font-size:1.05rem;font-weight:800;color:${colA}">${fmt(totA)}</div>
           <div style="font-size:.6rem;color:var(--txt2);margin-top:2px">${txsA.length} lançamentos</div>
         </div>
         <div style="text-align:center;padding:0 4px">
           <div style="font-size:.58rem;color:var(--txt2);margin-bottom:3px">diferença</div>
-          <div style="font-size:.85rem;font-weight:800;color:${diff>=0?'#F43F5E':'#10B981'}">${diff>=0?'+':''}${fmt(diff)}</div>
-          <div style="font-size:.62rem;font-weight:700;color:${diff>=0?'#F43F5E':'#10B981'}">${diff>=0?'▲':'▼'} ${Math.abs(diffPct).toFixed(1)}%</div>
+          <div style="font-size:.85rem;font-weight:800;color:${diff>=0?colB:colA}">${diff>=0?'+':''}${fmt(diff)}</div>
+          <div style="font-size:.62rem;font-weight:700;color:${diff>=0?colB:colA}">${diff>=0?'▲':'▼'} ${Math.abs(diffPct).toFixed(1)}%</div>
         </div>
-        <div style="background:${colB}22;border:1px solid ${colB}44;border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase;margin-bottom:4px">${lblB}</div>
+        <div style="background:${colB}22;border:2px solid ${colB}55;border-radius:12px;padding:12px;text-align:center">
+          <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:4px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${colB}"></div>
+            <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase">${lblB}</div>
+          </div>
           <div style="font-size:1.05rem;font-weight:800;color:${colB}">${fmt(totB)}</div>
           <div style="font-size:.6rem;color:var(--txt2);margin-top:2px">${txsB.length} lançamentos</div>
         </div>
       </div>`;
 
-      // Gráfico por categoria
+      // Gráfico por categoria — sem lançamentos
       const allCatIds=[...new Set([...txsA.map(t=>t.category),...txsB.map(t=>t.category)])];
-      const maxCat=Math.max(...allCatIds.map(id=>Math.max(
-        txsA.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0),
-        txsB.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0)
-      )),1);
+      const catsMap={};
+      allCatIds.forEach(id=>{
+        const vA=txsA.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
+        const vB=txsB.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
+        catsMap[id]={vA,vB};
+      });
+      const maxCat=Math.max(...Object.values(catsMap).map(v=>Math.max(v.vA,v.vB)),1);
 
-      const catHtml=allCatIds.length===0?'':
-        `<div style="margin-bottom:20px">
-          <div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:10px">Por categoria</div>
-          <div style="display:flex;gap:12px;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colA}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblA}</span></div>
-            <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colB}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblB}</span></div>
+      // Ordenar por maior valor entre A e B
+      const sortedCats=allCatIds
+        .map(id=>({id,...catsMap[id]}))
+        .sort((a,b)=>(b.vA+b.vB)-(a.vA+a.vB));
+
+      const catHtml=sortedCats.length===0?'':
+        `<div>
+          <div style="display:flex;gap:14px;margin-bottom:12px;align-items:center">
+            <div style="font-size:.72rem;font-weight:700;color:var(--txt)">Por categoria</div>
+            <div style="display:flex;gap:10px">
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colA}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblA}</span></div>
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colB}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblB}</span></div>
+            </div>
           </div>
-          ${allCatIds.map(id=>{
+          ${sortedCats.map(({id,vA,vB})=>{
             const cat=cats.find(c=>c.id===id)||{label:id,icon:'📦'};
-            const vA=txsA.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
-            const vB=txsB.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
             const pA=(vA/maxCat)*100, pB=(vB/maxCat)*100;
-            return`<div style="margin-bottom:10px">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                <span style="font-size:.72rem;color:var(--txt);font-weight:500">${cat.icon} ${cat.label}</span>
-                <span style="font-size:.65rem;color:${vA>vB?colA:vB>vA?colB:'var(--txt2)'};font-weight:700">${vA>vB?'A maior':vB>vA?'B maior':'igual'}</span>
+            const maiorLbl=vA>vB?lblA:vB>vA?lblB:'igual';
+            const maiorCol=vA>vB?colA:vB>vA?colB:'var(--txt2)';
+            return`<div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                <span style="font-size:.74rem;color:var(--txt);font-weight:600">${cat.icon} ${cat.label}</span>
+                <span style="font-size:.65rem;color:${maiorCol};font-weight:700;padding:2px 7px;background:${maiorCol}18;border-radius:8px">${maiorLbl} maior</span>
               </div>
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-                <span style="font-size:.6rem;color:var(--txt2);width:12px">A</span>
-                <div style="flex:1;background:var(--bg3);border-radius:4px;height:8px"><div style="height:100%;width:${pA}%;background:${colA};border-radius:4px;transition:width .5s"></div></div>
-                <span style="font-size:.62rem;font-weight:700;color:${colA};min-width:58px;text-align:right">${fmt(vA)}</span>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="font-size:.62rem;font-weight:700;color:${colA};width:14px">A</span>
+                <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden">
+                  <div style="height:100%;width:${pA}%;background:${colA};border-radius:5px;transition:width .5s"></div>
+                </div>
+                <span style="font-size:.68rem;font-weight:800;color:${colA};min-width:65px;text-align:right">${fmt(vA)}</span>
               </div>
               <div style="display:flex;align-items:center;gap:6px">
-                <span style="font-size:.6rem;color:var(--txt2);width:12px">B</span>
-                <div style="flex:1;background:var(--bg3);border-radius:4px;height:8px"><div style="height:100%;width:${pB}%;background:${colB};border-radius:4px;transition:width .5s"></div></div>
-                <span style="font-size:.62rem;font-weight:700;color:${colB};min-width:58px;text-align:right">${fmt(vB)}</span>
+                <span style="font-size:.62rem;font-weight:700;color:${colB};width:14px">B</span>
+                <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden">
+                  <div style="height:100%;width:${pB}%;background:${colB};border-radius:5px;transition:width .5s"></div>
+                </div>
+                <span style="font-size:.68rem;font-weight:800;color:${colB};min-width:65px;text-align:right">${fmt(vB)}</span>
               </div>
             </div>`;
           }).join('')}
         </div>`;
 
-      // Lançamentos lado a lado
-      const txHtml=`<div style="border-top:1px solid var(--brd);padding-top:16px">
-        <div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:12px">Lançamentos</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div style="font-size:.65rem;font-weight:700;color:${colA};margin-bottom:8px;text-transform:uppercase">${lblA}</div>
-            ${txsA.sort((a,b)=>b.value-a.value).slice(0,8).map(t=>{
-              const cat=cats.find(c=>c.id===t.category)||{icon:'📦',label:t.category};
-              return`<div style="padding:6px 0;border-bottom:1px solid var(--brd)">
-                <div style="font-size:.66rem;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat.icon} ${t.desc||cat.label}</div>
-                <div style="font-size:.7rem;font-weight:800;color:${colA}">${fmt(t.value)}</div>
-              </div>`;
-            }).join('')}
-            ${txsA.length>8?`<div style="font-size:.6rem;color:var(--txt2);text-align:center;padding:5px 0">+${txsA.length-8} mais</div>`:''}
-          </div>
-          <div>
-            <div style="font-size:.65rem;font-weight:700;color:${colB};margin-bottom:8px;text-transform:uppercase">${lblB}</div>
-            ${txsB.sort((a,b)=>b.value-a.value).slice(0,8).map(t=>{
-              const cat=cats.find(c=>c.id===t.category)||{icon:'📦',label:t.category};
-              return`<div style="padding:6px 0;border-bottom:1px solid var(--brd)">
-                <div style="font-size:.66rem;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat.icon} ${t.desc||cat.label}</div>
-                <div style="font-size:.7rem;font-weight:800;color:${colB}">${fmt(t.value)}</div>
-              </div>`;
-            }).join('')}
-            ${txsB.length>8?`<div style="font-size:.6rem;color:var(--txt2);text-align:center;padding:5px 0">+${txsB.length-8} mais</div>`:''}
-          </div>
-        </div>
-      </div>`;
-
-      return totHtml+catHtml+txHtml;
+      return totHtml+catHtml;
     })()}
   </div>
-
   `}`;
 }
 window.togBillPaidMonth=togBillPaidMonth;
