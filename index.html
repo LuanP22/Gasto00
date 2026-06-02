@@ -327,9 +327,9 @@ input,select,button,textarea{font-family:inherit;font-size:13px}
 .hps{background:rgba(0,229,160,.15);color:var(--grn)}.hpw{background:rgba(255,184,48,.15);color:var(--ylw)}.hpd{background:rgba(255,75,107,.15);color:var(--red)}
 
 /* GOALS */
-.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px}
-.gcard{background:var(--bg3);border:1px solid var(--brd);border-radius:11px;padding:13px 14px;transition:border-color .15s;min-width:0}
-.gcard:hover{border-color:var(--brd2)}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.gcard{background:var(--bg3);border:1px solid var(--brd);border-radius:16px;padding:20px 18px;transition:all .2s;min-width:0}
+.gcard:hover{border-color:var(--brd2);box-shadow:0 4px 20px rgba(0,0,0,.08)}
 .gh{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .gi{font-size:1.2rem;flex-shrink:0}
 .gn{font-size:.84rem;font-weight:700;color:var(--txt);word-break:break-word}
@@ -523,7 +523,7 @@ input,select,button,textarea{font-family:inherit;font-size:13px}
   .rgrid{grid-template-columns:1fr}
   .rpanel.full{grid-column:1}
   .cgrid{grid-template-columns:1fr}
-  .ggrid{grid-template-columns:1fr}
+  .ggrid{grid-template-columns:1fr;gap:12px}
 
   /* Tabela de transações: adaptar colunas */
   .thead{grid-template-columns:1fr 70px 60px;gap:4px;padding:7px 10px}
@@ -1983,27 +1983,27 @@ function pgGoals(){
           <div class="gn" style="font-size:.92rem">${g.name}</div>
           ${g.deadline?`<div class="gdl">Prazo: ${fd(g.deadline)}</div>`:""}
         </div>
-        <div style="font-size:.72rem;font-weight:700;padding:4px 10px;background:${g.color}18;color:${g.color};border-radius:20px;border:1px solid ${g.color}33;white-space:nowrap">${stages}</div>
+        <div style="font-size:.68rem;font-weight:700;padding:5px 10px;background:${g.color}18;color:${g.color};border-radius:20px;border:1px solid ${g.color}33;white-space:nowrap;flex-shrink:0">${stages}</div>
       </div>
 
       <!-- Valores -->
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-        <div>
-          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Guardado</div>
-          <div style="font-size:1.1rem;font-weight:800;color:${g.color}">${fmt(g.saved)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;border:1px solid var(--brd)">
+          <div style="font-size:.58rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Guardado</div>
+          <div style="font-size:.95rem;font-weight:800;color:${g.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fmt(g.saved)}</div>
         </div>
-        <div style="text-align:center">
-          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Faltam</div>
-          <div style="font-size:.88rem;font-weight:700;color:var(--red)">${done?'✅ Chegou!':fmt(left)}</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;border:1px solid var(--brd);text-align:center">
+          <div style="font-size:.58rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Faltam</div>
+          <div style="font-size:.95rem;font-weight:800;color:var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${done?'✅':fmt(left)}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Objetivo</div>
-          <div style="font-size:.88rem;font-weight:700;color:var(--txt)">${fmt(g.target)}</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px 12px;border:1px solid var(--brd);text-align:right">
+          <div style="font-size:.58rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Objetivo</div>
+          <div style="font-size:.95rem;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fmt(g.target)}</div>
         </div>
       </div>
 
       <!-- PISTA DO BONECO -->
-      <div style="background:var(--bg2);border-radius:14px;padding:10px 14px 6px;margin-bottom:12px;border:1px solid var(--brd)">
+      <div style="background:var(--bg2);border-radius:14px;padding:14px 16px 10px;margin-bottom:14px;border:1px solid var(--brd)">
         ${runner(pct, g.color, done)}
       </div>
 
