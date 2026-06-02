@@ -1869,23 +1869,161 @@ function pgCards(){
 function pgGoals(){
   const goals=D.goals||[];const now=new Date();
   const monthly=g=>{if(!g.deadline)return null;const dl=new Date(g.deadline);const m=Math.max(1,(dl.getFullYear()-now.getFullYear())*12+(dl.getMonth()-now.getMonth()));return Math.max(0,(g.target-g.saved)/m);};
-  return`<div class="ph"><div><h1>Metas Financeiras</h1><div class="sub">Objetivos e projeções</div></div><button class="btn-add" onclick="openM('addGoal')">+ Nova Meta</button></div>
-  ${goals.length===0?`<div class="panel" style="text-align:center;padding:48px 20px"><div class="empty-ic">🎯</div><div class="empty-t">Nenhuma meta</div><div style="font-size:.76rem;margin-bottom:12px">Defina objetivos e veja quanto guardar por mês</div><button class="btn-add" onclick="openM('addGoal')">+ Criar</button></div>`:`
+
+  // Renderizar carro F1 na pista
+  const runner=(pct,color,done)=>{
+    const TRACK=220;
+    const pos=Math.min(pct/100*TRACK, TRACK);
+    const xCar=pos+18;
+    const xFlag=TRACK+30;
+
+    // Carro F1 SVG inline — visto de cima
+    const f1car=(x,y,col,arrived)=>`
+      <g transform="translate(${x},${y})" style="transition:transform .8s cubic-bezier(.4,0,.2,1)">
+        ${arrived?`
+        <!-- Carro chegou — bandeirada -->
+        <!-- Corpo principal -->
+        <ellipse cx="0" cy="0" rx="13" ry="6" fill="${col}"/>
+        <!-- Cockpit -->
+        <ellipse cx="1" cy="0" rx="5" ry="3.5" fill="#111"/>
+        <!-- Capacete piloto -->
+        <ellipse cx="1" cy="0" rx="3" ry="2.5" fill="${col}" opacity="0.8"/>
+        <!-- Asa dianteira -->
+        <rect x="-16" y="-1.5" width="6" height="3" rx="1" fill="${col}"/>
+        <!-- Asa traseira -->
+        <rect x="11" y="-4" width="5" height="8" rx="1" fill="${col}" opacity="0.9"/>
+        <rect x="13" y="-5" width="2" height="10" rx="1" fill="${col}"/>
+        <!-- Rodas -->
+        <ellipse cx="-10" cy="-7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="-10" cy="7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="7" cy="-7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="7" cy="7" rx="3.5" ry="2.2" fill="#222"/>
+        <!-- Detalhe brilho -->
+        <ellipse cx="-2" cy="-1" rx="2" ry="1" fill="white" opacity="0.25"/>
+        <!-- Faíscas comemorativas -->
+        <text x="-18" y="-10" font-size="10">🎉</text>
+        <text x="14" y="-10" font-size="10">🏆</text>
+        `:`
+        <!-- Corpo principal -->
+        <ellipse cx="0" cy="0" rx="13" ry="6" fill="${col}"/>
+        <!-- Cockpit -->
+        <ellipse cx="1" cy="0" rx="5" ry="3.5" fill="#111"/>
+        <!-- Capacete piloto -->
+        <ellipse cx="1" cy="0" rx="3" ry="2.5" fill="${col}" opacity="0.8"/>
+        <!-- Asa dianteira -->
+        <rect x="-16" y="-1.5" width="6" height="3" rx="1" fill="${col}"/>
+        <!-- Asa traseira -->
+        <rect x="11" y="-4" width="5" height="8" rx="1" fill="${col}" opacity="0.9"/>
+        <rect x="13" y="-5" width="2" height="10" rx="1" fill="${col}"/>
+        <!-- Rodas -->
+        <ellipse cx="-10" cy="-7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="-10" cy="7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="7" cy="-7" rx="3.5" ry="2.2" fill="#222"/>
+        <ellipse cx="7" cy="7" rx="3.5" ry="2.2" fill="#222"/>
+        <!-- Detalhe brilho -->
+        <ellipse cx="-2" cy="-1" rx="2" ry="1" fill="white" opacity="0.25"/>
+        <!-- Escape de fogo se acima de 50% -->
+        ${pct>=50?`<ellipse cx="15" cy="0" rx="4" ry="1.5" fill="#FF6B00" opacity="0.8"/><ellipse cx="18" cy="0" rx="2.5" ry="1" fill="#FFD700" opacity="0.7"/>`:``}
+        `}
+      </g>`;
+
+    if(done){
+      return`<svg viewBox="0 0 280 52" width="100%" style="display:block;overflow:visible">
+        <!-- Asfalto -->
+        <rect x="14" y="34" width="${TRACK+14}" height="6" rx="3" fill="#333"/>
+        <!-- Linha branca central -->
+        ${[0,1,2,3,4,5,6,7].map(i=>`<rect x="${24+i*28}" y="36" width="14" height="2" rx="1" fill="white" opacity="0.3"/>`).join('')}
+        <!-- Progresso colorido -->
+        <rect x="14" y="34" width="${TRACK+14}" height="6" rx="3" fill="${color}" opacity="0.5"/>
+        <!-- Bandeira chegada -->
+        <text x="${xFlag+2}" y="28" font-size="20" text-anchor="middle">🏁</text>
+        <!-- Carro chegado -->
+        ${f1car(xCar, 31, '#E8002D', true)}
+        <!-- % -->
+
+      </svg>`;
+    }
+
+    return`<svg viewBox="0 0 280 52" width="100%" style="display:block;overflow:visible">
+      <!-- Asfalto -->
+      <rect x="14" y="34" width="${TRACK+14}" height="6" rx="3" fill="#2a2a2a"/>
+      <!-- Linha branca tracejada central (pista) -->
+      ${[0,1,2,3,4,5,6,7].map(i=>`<rect x="${24+i*28}" y="36" width="14" height="2" rx="1" fill="white" opacity="0.2"/>`).join('')}
+      <!-- Progresso colorido na pista -->
+      <rect x="14" y="34" width="${Math.max(pos+4,4)}" height="6" rx="3" fill="${color}" opacity="0.6" style="transition:width .8s cubic-bezier(.4,0,.2,1)"/>
+      <!-- Marcadores -->
+      ${[25,50,75].map(p=>`
+        <rect x="${14+TRACK*p/100}" y="30" width="1.5" height="14" rx="1" fill="${color}" opacity="0.4"/>
+        <text x="${14+TRACK*p/100}" y="28" font-size="7.5" text-anchor="middle" fill="${color}" opacity="0.8" font-weight="600">${p}%</text>
+      `).join('')}
+      <!-- Largada -->
+      <text x="14" y="28" font-size="12" text-anchor="middle">🚦</text>
+      <!-- Chegada -->
+      <text x="${xFlag+2}" y="28" font-size="16" text-anchor="middle">🏁</text>
+      <!-- Carro F1 -->
+      ${f1car(xCar, 37, '#E8002D', false)}
+      <!-- sem % acima do carro -->
+    </svg>`;
+  };
+
+  return`<div class="ph"><div><h1>Metas 🎮</h1><div class="sub">Avance e conquiste seus objetivos!</div></div><button class="btn-add" onclick="openM('addGoal')">+ Nova Meta</button></div>
+  ${goals.length===0?`<div class="panel" style="text-align:center;padding:48px 20px"><div class="empty-ic">🎯</div><div class="empty-t">Nenhuma meta</div><div style="font-size:.76rem;margin-bottom:12px">Crie uma meta e veja seu boneco correr até o objetivo!</div><button class="btn-add" onclick="openM('addGoal')">+ Criar minha primeira meta</button></div>`:`
   <div class="ggrid">${goals.map(g=>{
-    const pct=Math.min((g.saved/g.target)*100,100);const left=Math.max(g.target-g.saved,0);const m=monthly(g);const done=pct>=100;
-    return`<div class="gcard">
-      <div class="gh"><div class="gi">${g.icon}</div><div style="flex:1;min-width:0"><div class="gn">${g.name}</div>${g.deadline?`<div class="gdl">Prazo: ${fd(g.deadline)}</div>`:""}</div>${done?`<span style="font-size:1rem;flex-shrink:0">✅</span>`:""}</div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:.68rem;color:var(--txt2)"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${fmt(g.saved)} / ${fmt(g.target)}</span><span style="font-weight:700;color:${g.color};flex-shrink:0;margin-left:4px">${pct.toFixed(0)}%</span></div>
-      <div class="gpbg"><div class="gpfill" style="width:${pct}%;background:${g.color}"></div></div>
-      <div class="gstats">
-        <div class="gsi"><div class="gsl">Faltam</div><div class="gsv vr">${fmt(left)}</div></div>
-        <div class="gsi"><div class="gsl">Guardado</div><div class="gsv vg">${fmt(g.saved)}</div></div>
-        <div class="gsi"><div class="gsl">Mensal</div><div class="gsv vy">${m?fmt(m):"—"}</div></div>
+    const pct=Math.min((g.saved/g.target)*100,100);
+    const left=Math.max(g.target-g.saved,0);
+    const m=monthly(g);
+    const done=pct>=100;
+    const stages=done?'🏆 Objetivo alcançado!':pct>=75?'🔥 Quase lá!':pct>=50?'💪 Metade do caminho!':pct>=25?'🚶 Progredindo bem!':'🚀 Começando a jornada!';
+
+    return`<div class="gcard" style="padding:18px 16px">
+      <!-- Header -->
+      <div class="gh" style="margin-bottom:4px">
+        <div class="gi" style="font-size:1.6rem">${g.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div class="gn" style="font-size:.92rem">${g.name}</div>
+          ${g.deadline?`<div class="gdl">Prazo: ${fd(g.deadline)}</div>`:""}
+        </div>
+        <div style="font-size:.72rem;font-weight:700;padding:4px 10px;background:${g.color}18;color:${g.color};border-radius:20px;border:1px solid ${g.color}33;white-space:nowrap">${stages}</div>
       </div>
+
+      <!-- Valores -->
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+        <div>
+          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Guardado</div>
+          <div style="font-size:1.1rem;font-weight:800;color:${g.color}">${fmt(g.saved)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Faltam</div>
+          <div style="font-size:.88rem;font-weight:700;color:var(--red)">${done?'✅ Chegou!':fmt(left)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.62rem;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px">Objetivo</div>
+          <div style="font-size:.88rem;font-weight:700;color:var(--txt)">${fmt(g.target)}</div>
+        </div>
+      </div>
+
+      <!-- PISTA DO BONECO -->
+      <div style="background:var(--bg2);border-radius:14px;padding:10px 14px 6px;margin-bottom:12px;border:1px solid var(--brd)">
+        ${runner(pct, g.color, done)}
+      </div>
+
+      <!-- Mensal -->
+      ${m&&!done?`<div style="text-align:center;font-size:.68rem;color:var(--txt2);margin-bottom:10px">💡 Guarde <strong style="color:${g.color}">${fmt(m)}/mês</strong> para chegar no prazo</div>`:""}
+
+      <!-- Ações -->
       ${ADD_TO===g.id?
-        `<div style="display:flex;gap:4px;margin-top:7px"><input id="av_${g.id}" type="number" class="inp fsearch" placeholder="R$ aporte" style="flex:1;padding:6px 8px" value="${ADD_VAL}" oninput="ADD_VAL=this.value"/><button class="btn-s btn-g" style="padding:5px 8px" onclick="doContrib('${g.id}')">✓</button><button class="btn-s" style="padding:5px 8px" onclick="ADD_TO=null;ADD_VAL='';renderMain()">✕</button></div>`:
-        `<div class="gacts">${!done?`<button class="btn-s btn-g" style="flex:1;font-size:.72rem" onclick="ADD_TO='${g.id}';ADD_VAL='';renderMain()">💰 Aportar</button>`:""}<button class="btn-s" style="flex:1;font-size:.72rem" onclick="openM('editGoal','${g.id}')">✏️ Editar</button><button class="btn-s btn-d" style="padding:5px 8px" data-id="${g.id}" data-action="delGoal">🗑</button></div>`}
-    </div>`;}).join("")}</div>`}`;
+        `<div style="display:flex;gap:6px;margin-top:4px">
+          <input id="av_${g.id}" type="number" class="inp" placeholder="Valor do aporte" style="flex:1;padding:8px 10px;font-size:.78rem" value="${ADD_VAL}" oninput="ADD_VAL=this.value"/>
+          <button class="btn-s btn-g" style="padding:8px 12px;font-size:.8rem" onclick="doContrib('${g.id}')">✓</button>
+          <button class="btn-s" style="padding:8px 10px" onclick="ADD_TO=null;ADD_VAL='';renderMain()">✕</button>
+        </div>`:
+        `<div class="gacts">
+          ${!done?`<button class="btn-s btn-g" style="flex:1;font-size:.74rem;padding:9px" onclick="ADD_TO='${g.id}';ADD_VAL='';renderMain()">💰 Depositar</button>`:""}
+          <button class="btn-s" style="flex:1;font-size:.74rem;padding:9px" onclick="openM('editGoal','${g.id}')">✏️ Editar</button>
+          <button class="btn-s btn-d" style="padding:9px 10px" data-id="${g.id}" data-action="delGoal">🗑</button>
+        </div>`}
+    </div>`;
+  }).join("")}</div>`}`;
 }
 window.doContrib=gid=>{const v=Number(ADD_VAL);if(!v||v<=0)return;save({...D,goals:(D.goals||[]).map(g=>g.id===gid?{...g,saved:g.saved+v}:g)});ADD_TO=null;ADD_VAL="";};
 // delGoal handled by event delegation
