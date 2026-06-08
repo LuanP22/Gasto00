@@ -2183,13 +2183,21 @@ function pgReports(){
             <!-- Detalhamento inline -->
             <div id="${detId}" style="display:none;background:var(--bg2);border-top:1px solid var(--brd);padding:10px 12px">
               <div style="display:flex;flex-direction:column;gap:5px">
-                ${cTxs.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--brd)">
+                ${cTxs.map(t=>{
+                  const paid=t.paid!==false;
+                  return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:10px;border:1px solid ${paid?'var(--brd)':'rgba(245,158,11,.25)'}">
                   <div style="flex:1;min-width:0">
-                    <div style="font-size:.78rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description||"—"}</div>
-                    <div style="font-size:.64rem;color:var(--txt2);margin-top:1px">${fdw(t.date)}${t.paymentMethod?' · '+(t.paymentMethod==="pix"?"💠 PIX":t.paymentMethod==="credit"?"💳 Crédito":t.paymentMethod==="debit"?"💳 Débito":"💵 Dinheiro"):''}</div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+                      <span style="font-size:.78rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description||"—"}</span>
+                      ${paid
+                        ?`<span style="flex-shrink:0;font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:20px;background:rgba(16,185,129,.12);color:#10B981;border:1px solid rgba(16,185,129,.3)">✓ Pago</span>`
+                        :`<span style="flex-shrink:0;font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:20px;background:rgba(245,158,11,.12);color:#F59E0B;border:1px solid rgba(245,158,11,.3)">⏳ Pendente</span>`
+                      }
+                    </div>
+                    <div style="font-size:.63rem;color:var(--txt2)">${fdw(t.date)}${t.paymentMethod?' · '+(t.paymentMethod==="pix"?"💠 PIX":t.paymentMethod==="credit"?"💳 Crédito":t.paymentMethod==="debit"?"💳 Débito":"💵 Dinheiro"):''}</div>
                   </div>
-                  <span style="font-size:.84rem;font-weight:800;color:var(--red);flex-shrink:0;margin-left:12px">${fmt(t.value)}</span>
-                </div>`).join("")}
+                  <span style="font-size:.84rem;font-weight:800;color:${paid?'var(--txt)':'#F59E0B'};flex-shrink:0;margin-left:12px">${fmt(t.value)}</span>
+                </div>`;}).join("")}
                 <div style="padding:6px 10px;display:flex;justify-content:space-between;border-top:1px solid var(--brd);margin-top:2px">
                   <span style="font-size:.74rem;color:var(--txt2)">Total ${cat.label}</span>
                   <span style="font-size:.8rem;font-weight:800;color:${cat.color}">${fmt(cat.total)}</span>
