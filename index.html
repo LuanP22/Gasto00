@@ -595,6 +595,8 @@ function togBillPaidMonth(id){
 }
 const fmt=window.fmt=v=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
 const fd=s=>{if(!s)return"";const[y,m,d]=s.split("-");return`${d}/${m}/${y}`};
+const DIAS=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const fdw=s=>{if(!s)return"";const[y,m,d]=s.split("-");const dt=new Date(parseInt(y),parseInt(m)-1,parseInt(d));return`${DIAS[dt.getDay()]}, ${d}/${m}/${y}`};
 const tod=()=>new Date().toISOString().split("T")[0];
 const LS={g:k=>{try{return JSON.parse(localStorage.getItem(k))}catch{return null}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},d:k=>{try{localStorage.removeItem(k)}catch{}}};
 
@@ -2184,7 +2186,7 @@ function pgReports(){
                 ${cTxs.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--brd)">
                   <div style="flex:1;min-width:0">
                     <div style="font-size:.78rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description||"—"}</div>
-                    <div style="font-size:.64rem;color:var(--txt2);margin-top:1px">${fd(t.date)}${t.paymentMethod?' · '+(t.paymentMethod==="pix"?"💠 PIX":t.paymentMethod==="credit"?"💳 Crédito":t.paymentMethod==="debit"?"💳 Débito":"💵 Dinheiro"):''}</div>
+                    <div style="font-size:.64rem;color:var(--txt2);margin-top:1px">${fdw(t.date)}${t.paymentMethod?' · '+(t.paymentMethod==="pix"?"💠 PIX":t.paymentMethod==="credit"?"💳 Crédito":t.paymentMethod==="debit"?"💳 Débito":"💵 Dinheiro"):''}</div>
                   </div>
                   <span style="font-size:.84rem;font-weight:800;color:var(--red);flex-shrink:0;margin-left:12px">${fmt(t.value)}</span>
                 </div>`).join("")}
@@ -2273,7 +2275,7 @@ function pgReports(){
                       ${mo.txs.sort((a,b)=>b.value-a.value).map(t=>`<div style="display:flex;justify-content:space-between;padding:4px 8px;background:var(--bg3);border-radius:5px">
                         <span style="font-size:.7rem;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${t.description||"—"}</span>
                         <div style="display:flex;gap:7px;align-items:center;flex-shrink:0">
-                          <span style="font-size:.65rem;color:var(--txt2)">${fd(t.date)}</span>
+                          <span style="font-size:.65rem;color:var(--txt2)">${fdw(t.date)}</span>
                           <span style="font-size:.72rem;font-weight:700;color:var(--red)">${fmt(t.value)}</span>
                         </div>
                       </div>`).join("")}
