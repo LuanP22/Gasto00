@@ -2183,7 +2183,7 @@ function pgReports(){
             <!-- Detalhamento inline -->
             <div id="${detId}" style="display:none;background:var(--bg2);border-top:1px solid var(--brd);padding:10px 12px">
               <div style="display:flex;flex-direction:column;gap:5px">
-                ${cTxs.map(t=>{
+                ${[...cTxs].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>{
                   const paid=t.paid!==false;
                   return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:10px;border:1px solid ${paid?'var(--brd)':'rgba(245,158,11,.25)'}">
                   <div style="flex:1;min-width:0">
