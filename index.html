@@ -600,7 +600,7 @@ const fdw=s=>{if(!s)return"";const[y,m,d]=s.split("-");const dt=new Date(parseIn
 const tod=()=>new Date().toISOString().split("T")[0];
 const LS={g:k=>{try{return JSON.parse(localStorage.getItem(k))}catch{return null}},s:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},d:k=>{try{localStorage.removeItem(k)}catch{}}};
 
-function emptyD(){return{transactions:[],cards:[],goals:[],categories:CATS.map(c=>({...c})),bills:[]};}
+function emptyD(){return{transactions:[],cards:[],goals:[],categories:CATS.map(c=>({...c})),bills:[],limits:{}};}
 
 // ── SUPABASE ─────────────────────────────────────────────────
 const SB_URL="https://potptpukrzccicpbpfkj.supabase.co";
@@ -739,7 +739,7 @@ async function apiSave(uid,d){
   }catch(e){}
 }
 function setUD(uid,d){apiSave(uid,d);}
-function getUD(uid){const d=LS.g("g0_data_"+uid);if(!d)return uid==="demo"?demoD():emptyD();if(!d.categories||!d.categories.length)d.categories=CATS.map(c=>({...c}));return d;}
+function getUD(uid){const d=LS.g("g0_data_"+uid);if(!d)return uid==="demo"?demoD():emptyD();if(!d.categories||!d.categories.length)d.categories=CATS.map(c=>({...c}));if(!d.limits)d.limits={};return d;}
 
 function demoD(){
   const txs=[];let id=1;
@@ -1576,6 +1576,109 @@ function pgDashboard(){
 
   </div>
   `:''}
+
+  <!-- ══ LIMITADOR DE GASTOS ══ -->
+  ${(()=>{
+    const limits = D.limits||{};
+    const hasLimits = Object.keys(limits).length > 0;
+    if(!hasLimits) return `
+      <div class="chart-modern" style="margin-bottom:14px;padding:16px 18px;cursor:pointer" onclick="openM('editLimits')">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:.84rem;font-weight:700;color:var(--txt);margin-bottom:3px">🎯 Limite de gastos</div>
+            <div style="font-size:.72rem;color:var(--txt2)">Defina limites por categoria e acompanhe aqui</div>
+          </div>
+          <div style="font-size:.72rem;color:var(--acc2);font-weight:600;flex-shrink:0;margin-left:10px">+ Configurar →</div>
+        </div>
+      </div>`;
+
+    // Calcular gastos vs limites
+    const catLimits = Object.entries(limits).map(([catId, limit])=>{
+      const cat = cats.find(c=>c.id===catId)||{icon:'📦',label:catId,color:'#888'};
+      const spent = cur.filter(t=>t.type==='expense'&&t.category===catId).reduce((s,t)=>s+t.value,0);
+      const pct = limit>0 ? Math.min((spent/limit)*100,100) : 0;
+      const over = spent > limit;
+      const remaining = limit - spent;
+      return {cat, limit, spent, pct, over, remaining};
+    }).filter(l=>l.limit>0);
+
+    if(!catLimits.length) return '';
+
+    const totalLimit = catLimits.reduce((s,l)=>s+l.limit,0);
+    const totalSpent = catLimits.reduce((s,l)=>s+l.spent,0);
+    const totalPct = totalLimit>0?(totalSpent/totalLimit)*100:0;
+    const overCount = catLimits.filter(l=>l.over).length;
+    const daysInMonth = new Date(DASH_Y,DASH_M+1,0).getDate();
+    const daysPassed = isDashCur?Math.min(new Date().getDate(),daysInMonth):daysInMonth;
+    const daysLeft = isDashCur?Math.max(daysInMonth-daysPassed,0):0;
+    const remainingTotal = totalLimit - totalSpent;
+    const dailyBudget = daysLeft>0?(remainingTotal/daysLeft):0;
+
+    const msg = overCount>0
+      ? `⚠️ ${overCount} categoria${overCount>1?'s':''} acima do limite este mês`
+      : remainingTotal<0 ? '🚨 Orçamento total excedido!'
+      : dailyBudget>0 ? `✅ Você está dentro do orçamento. Gaste até ${fmt(dailyBudget)}/dia para manter o controle.`
+      : `✅ Dentro do orçamento em ${MONTHS[DASH_M]}`;
+
+    const msgColor = overCount>0||remainingTotal<0 ? '#F43F5E' : '#10B981';
+
+    return `<div class="chart-modern" style="margin-bottom:14px;padding:18px">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:.86rem;font-weight:800;color:var(--txt)">🎯 Limite de gastos</div>
+        <button onclick="openM('editLimits')" style="background:none;border:none;font-size:.68rem;color:var(--acc2);cursor:pointer;font-weight:600">✏️ Editar</button>
+      </div>
+
+      <!-- Gráfico de linha geral -->
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:.7rem;color:var(--txt2)">Total do mês</span>
+          <span style="font-size:.7rem;font-weight:700;color:${totalPct>100?'#F43F5E':totalPct>75?'#F59E0B':'#10B981'}">${fmt(totalSpent)} / ${fmt(totalLimit)}</span>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;height:10px;overflow:hidden;position:relative">
+          <div style="height:100%;width:${Math.min(totalPct,100)}%;background:${totalPct>100?'#F43F5E':totalPct>75?'#F59E0B':'#10B981'};border-radius:8px;transition:width .6s cubic-bezier(.4,0,.2,1)"></div>
+          ${totalPct>100?`<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(244,63,94,.2) 4px,rgba(244,63,94,.2) 8px)"></div>`:''}
+        </div>
+      </div>
+
+      <!-- Mensagem inteligente -->
+      <div style="padding:10px 12px;background:${msgColor}11;border:1px solid ${msgColor}33;border-radius:10px;margin-bottom:14px">
+        <div style="font-size:.74rem;color:${msgColor};font-weight:600;line-height:1.4">${msg}</div>
+      </div>
+
+      <!-- Anéis por categoria -->
+      <div style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
+        ${catLimits.slice(0,7).map(({cat,limit,spent,pct,over,remaining})=>{
+          const R=26, C=2*Math.PI*R, col=over?'#F43F5E':pct>75?'#F59E0B':cat.color;
+          const filled=C*(Math.min(pct,100)/100);
+          const gap=C-filled;
+          return`<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0;min-width:62px">
+            <div style="position:relative;width:62px;height:62px">
+              <svg width="62" height="62" viewBox="0 0 62 62">
+                <!-- Fundo -->
+                <circle cx="31" cy="31" r="${R}" fill="none" stroke="var(--bg3)" stroke-width="7"/>
+                <!-- Progresso -->
+                <circle cx="31" cy="31" r="${R}" fill="none" stroke="${col}" stroke-width="7"
+                  stroke-dasharray="${filled.toFixed(1)} ${gap.toFixed(1)}"
+                  stroke-dashoffset="${(C*0.25).toFixed(1)}"
+                  transform="rotate(-90,31,31)"
+                  style="transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1)"/>
+                ${over?`<circle cx="31" cy="31" r="${R}" fill="none" stroke="${col}" stroke-width="7" opacity="0.25"/>`:''}
+              </svg>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
+                <div style="font-size:14px;line-height:1">${cat.icon}</div>
+                <div style="font-size:7.5px;font-weight:800;color:${col};line-height:1.2">${pct.toFixed(0)}%</div>
+              </div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:.62rem;font-weight:700;color:${col}">${fmt(over?remaining*-1:remaining).replace('R$ ','R$ ')}</div>
+              <div style="font-size:.56rem;color:var(--txt2)">${over?'acima':'restante'}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  })()}
 
   <!-- Últimas transações do mês -->
   ${recent.length>0?`<div class="chart-modern">
@@ -2840,9 +2943,9 @@ async function sendChatMsg(){
 
     // Chamada direta (sem proxy)
     try{
-      response = await fetch("https://potptpukrzccicpbpfkj.supabase.co/functions/v1/ai-proxy", {
+      response = await fetch("https://potptpukrzccicpbpfkj.supabase.co/v1/messages", {
         method: "POST",
-        headers: {"Content-Type": "application/json", "Authorization": "Bearer "+SB_KEY},
+        headers: {"Content-Type": "application/json", "x-api-key": "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", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
         body: reqBody
       });
       const data = await response.json();
@@ -3075,9 +3178,9 @@ async function loadAITips(){
     totalTransacoes:cur.length,
   };
   try{
-    const r=await fetch("https://potptpukrzccicpbpfkj.supabase.co/functions/v1/ai-proxy",{
+    const r=await fetch("https://potptpukrzccicpbpfkj.supabase.co/v1/messages",{
       method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+SB_KEY},
+      headers:{"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({
         model:"claude-haiku-4-5-20251001",
         max_tokens:1000,
@@ -3134,6 +3237,39 @@ function pgSync(){
     <div id="smsg"></div>
   </div>
 
+
+  <!-- ══ IMPORTAÇÃO DE FATURA ══ -->
+  <div class="syncbox" style="border:2px solid rgba(123,97,255,.25);background:linear-gradient(135deg,var(--bg3),var(--bg2))">
+    <h3 style="color:var(--acc2);margin-bottom:4px">🤖 Importar Fatura / Extrato</h3>
+    <p style="font-size:.76rem;color:var(--txt2);margin-bottom:14px">Envie o PDF, imagem ou texto da sua fatura — a IA lê e importa tudo automaticamente.</p>
+
+    <button class="btn-add" onclick="importarPDF()" style="width:100%;padding:12px;font-size:.84rem;margin-bottom:14px;border-radius:12px">
+      📎 Selecionar PDF, Imagem ou CSV
+    </button>
+
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="flex:1;height:1px;background:var(--brd)"></div>
+      <span style="font-size:.68rem;color:var(--txt2);flex-shrink:0">ou cole o texto da fatura</span>
+      <div style="flex:1;height:1px;background:var(--brd)"></div>
+    </div>
+
+    <textarea id="pdf-text-manual" class="inp" style="width:100%;height:110px;font-size:.74rem;resize:vertical;margin-bottom:8px;border-radius:10px" placeholder="Cole aqui o texto copiado da fatura (abra o PDF, Ctrl+A, Ctrl+C)..."></textarea>
+    <button class="btn-s btn-g" onclick="processarTextoPDF()" style="width:100%;padding:10px;font-size:.8rem;border-radius:10px;margin-bottom:10px">🤖 Analisar texto colado</button>
+
+    <div id="pdf-status"></div>
+    <div id="pdf-preview" style="max-height:380px;overflow-y:auto"></div>
+
+    <div style="margin-top:12px;padding:10px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--brd)">
+      <div style="font-size:.68rem;font-weight:700;color:var(--txt2);margin-bottom:4px">💡 Dicas:</div>
+      <div style="font-size:.66rem;color:var(--txt2);line-height:1.7">
+        • <strong>PDF digital</strong> (gerado pelo app do banco) → funciona direto<br>
+        • <strong>Nubank / Inter / C6 / Itaú</strong> → abra no app, compartilhe o PDF<br>
+        • <strong>PDF protegido</strong> → tire print e envie como imagem<br>
+        • <strong>Extrato CSV/TXT</strong> → funciona também
+      </div>
+    </div>
+  </div>
+
   <div class="syncbox">
     <h3>📊 Dados neste dispositivo</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-top:8px">
@@ -3163,9 +3299,9 @@ window.launchByText = async function(){
   const today = new Date().toISOString().split('T')[0];
 
   try{
-    const response = await fetch("https://potptpukrzccicpbpfkj.supabase.co/functions/v1/ai-proxy", {
+    const response = await fetch("https://potptpukrzccicpbpfkj.supabase.co/v1/messages", {
       method: "POST",
-      headers: {"Content-Type":"application/json","Authorization":"Bearer "+SB_KEY},
+      headers: {"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1500,
@@ -3246,134 +3382,310 @@ window.launchByText = async function(){
   if(btn){ btn.textContent = '🚀 Lançar automaticamente'; btn.disabled = false; }
 };
 
+// ══════════════════════════════════════════════════════════════
+// IMPORTAÇÃO INTELIGENTE — PDF, Imagem ou Texto
+// Usa Claude Vision para ler faturas/extratos reais
+// ══════════════════════════════════════════════════════════════
+
 window.importarPDF = function(){
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.pdf,application/pdf,.txt,.csv';
+  input.accept = '.pdf,application/pdf,.png,.jpg,.jpeg,.txt,.csv,image/*';
+  input.multiple = true;
   input.onchange = async function(e){
-    const file = e.target.files[0];
-    if(!file) return;
+    const files = Array.from(e.target.files);
+    if(!files.length) return;
     const statusEl = document.getElementById('pdf-status');
     const previewEl = document.getElementById('pdf-preview');
     if(!statusEl) return;
-
-    statusEl.innerHTML = '<div style="padding:10px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:7px;font-size:.78rem;color:var(--acc2)">⏳ Lendo o arquivo... aguarde.</div>';
     if(previewEl) previewEl.innerHTML = '';
 
-    try{
-      let textContent = '';
+    statusEl.innerHTML = `<div style="padding:10px 12px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:10px;font-size:.78rem;color:var(--acc2)">
+      ⏳ Lendo ${files.length} arquivo(s)... aguarde.
+    </div>`;
 
-      // Tentar ler como texto (funciona para PDF digitais e TXT/CSV)
-      const textResult = await new Promise(function(resolve, reject){
-        const reader = new FileReader();
-        reader.onload = function(ev){ resolve(ev.target.result); };
-        reader.onerror = function(){ reject(new Error('Erro ao ler arquivo')); };
-        reader.readAsText(file, 'utf-8');
-      });
+    let allTxs = [];
+    let erros = [];
 
-      // Filtrar caracteres legíveis (PDFs têm muito lixo binário)
-      textContent = textResult
-        .replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, ' ')  // manter ASCII + Latin
-        .replace(/\s+/g, ' ')
-        .trim();
+    for(let i = 0; i < files.length; i++){
+      const file = files[i];
+      statusEl.innerHTML = `<div style="padding:10px 12px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:10px;font-size:.78rem;color:var(--acc2)">
+        🤖 Analisando arquivo ${i+1}/${files.length}: <strong>${file.name}</strong>
+      </div>`;
 
-      // Se muito lixo (menos de 20% legível), avisar
-      const readableChars = (textResult.match(/[a-zA-Z0-9\.,\/\-\s]/g)||[]).length;
-      const ratio = readableChars / textResult.length;
+      try{
+        const tipo = file.type;
+        const isImage = tipo.startsWith('image/');
+        const isPDF = tipo === 'application/pdf' || file.name.endsWith('.pdf');
+        const isText = tipo.startsWith('text/') || file.name.endsWith('.csv') || file.name.endsWith('.txt');
 
-      if(ratio < 0.15 || textContent.length < 50){
-        statusEl.innerHTML = '<div style="padding:10px;background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.2);border-radius:7px;font-size:.78rem;color:var(--ylw)">⚠️ PDF protegido ou escaneado. Tente exportar o extrato como PDF digital no app do banco, ou cole o texto abaixo.</div>'
-          + '<div style="margin-top:8px"><textarea id="pdf-text-manual" class="inp" style="width:100%;height:120px;font-size:.74rem;resize:vertical" placeholder="Cole aqui o texto do extrato bancário..."></textarea>'
-          + '<button class="btn-add" style="margin-top:6px;font-size:.76rem" onclick="processarTextoPDF()">🤖 Analisar texto</button></div>';
-        return;
+        if(isImage){
+          // Imagem → Claude Vision direto
+          const base64 = await fileToBase64(file);
+          const txs = await analisarComVision(base64, tipo, file.name);
+          allTxs = allTxs.concat(txs);
+        } else if(isPDF){
+          // PDF → tentar como texto primeiro
+          const texto = await fileToText(file);
+          const readableRatio = (texto.match(/[a-zA-ZÀ-ÿ0-9\s\.,\-\/R\$]/g)||[]).length / Math.max(texto.length,1);
+
+          if(readableRatio > 0.35 && texto.length > 100){
+            // PDF digital — usar texto
+            const txs = await analisarComTexto(texto.slice(0, 8000), file.name);
+            allTxs = allTxs.concat(txs);
+          } else {
+            // PDF escaneado/protegido → tentar base64 com Vision
+            try{
+              const base64 = await fileToBase64(file);
+              const txs = await analisarComVision(base64, 'application/pdf', file.name);
+              allTxs = allTxs.concat(txs);
+            } catch(e2){
+              erros.push(`${file.name}: PDF protegido ou escaneado. Use "Colar texto" abaixo.`);
+            }
+          }
+        } else if(isText){
+          const texto = await fileToText(file);
+          const txs = await analisarComTexto(texto.slice(0, 8000), file.name);
+          allTxs = allTxs.concat(txs);
+        }
+      } catch(err){
+        erros.push(`${file.name}: ${err.message}`);
       }
-
-      statusEl.innerHTML = '<div style="padding:10px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:7px;font-size:.78rem;color:var(--acc2)">🤖 IA analisando... (' + textContent.length + ' caracteres)</div>';
-
-      await analisarTextoBancario(textContent, statusEl, previewEl);
-
-    }catch(err){
-      statusEl.innerHTML = '<div style="padding:10px;background:rgba(255,75,107,.08);border:1px solid rgba(255,75,107,.2);border-radius:7px;font-size:.78rem;color:var(--red)">❌ Erro: ' + err.message + '</div>';
     }
+
+    if(allTxs.length === 0){
+      statusEl.innerHTML = `<div style="padding:10px;background:rgba(255,75,107,.08);border:1px solid rgba(255,75,107,.2);border-radius:10px;font-size:.78rem;color:var(--red)">
+        ❌ Nenhuma transação encontrada.${erros.length?' '+erros[0]:''}
+        <div style="margin-top:8px;font-size:.73rem;color:var(--txt2)">Tente colar o texto do extrato no campo abaixo.</div>
+      </div>`;
+      return;
+    }
+
+    mostrarPreviewTxs(allTxs, statusEl, previewEl, erros);
   };
   input.click();
 };
+
+// Converter arquivo para base64
+async function fileToBase64(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Erro ao ler arquivo'));
+    r.readAsDataURL(file);
+  });
+}
+
+// Converter arquivo para texto
+async function fileToText(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result||'');
+    r.onerror = () => rej(new Error('Erro ao ler arquivo'));
+    r.readAsText(file, 'utf-8');
+  });
+}
+
+// Analisar via Claude Vision (imagens e PDFs escaneados)
+async function analisarComVision(base64, mediaType, filename){
+  const cats = (D.categories||CATS).map(c => c.icon+' '+c.label+' (id:'+c.id+')').join(', ');
+  const cards = (D.cards||[]).map(c => c.name+' (id:'+c.id+')').join(', ');
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "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",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 4000,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: mediaType === 'application/pdf' ? 'document' : 'image',
+            source: {
+              type: 'base64',
+              media_type: mediaType === 'application/pdf' ? 'application/pdf' : mediaType,
+              data: base64
+            }
+          },
+          {
+            type: "text",
+            text: `Analise esta fatura/extrato bancário e extraia TODAS as transações.
+
+Categorias disponíveis: ${cats}
+Cartões disponíveis: ${cards}
+
+Retorne SOMENTE JSON válido sem markdown:
+{"transactions":[{"date":"YYYY-MM-DD","description":"descrição da compra","value":123.45,"type":"expense","category":"id_categoria","cardId":null,"paid":false}]}
+
+Regras:
+- type: "expense" para compras/débitos, "income" para créditos/pagamentos recebidos
+- value: sempre número positivo
+- date: formato YYYY-MM-DD. Se ano não aparecer use 2026
+- Ignore totais, saldos, limites, pagamentos da fatura
+- paid: false para lançamentos futuros/pendentes, true para já efetivados
+- Classifique a categoria pelo nome da compra`
+          }
+        ]
+      }]
+    })
+  });
+
+  if(!resp.ok){
+    const errText = await resp.text().catch(()=>'');
+    throw new Error('API ' + resp.status + (errText?': '+errText.slice(0,120):''));
+  }
+  const data = await resp.json();
+  console.log('API response:', JSON.stringify(data).slice(0,200));
+  if(data.error) throw new Error(data.error.message||data.error.type||JSON.stringify(data.error).slice(0,150));
+  const text = (data.content||[]).map(b => b.text||'').join('');
+  if(!text) throw new Error('Resposta vazia — verifique a chave da API');
+  let parsed;
+  try{
+    const clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+  }catch(e){ throw new Error('IA retornou: '+text.slice(0,150)); }
+  return parsed.transactions||[];
+}
+
+// Analisar via texto puro
+async function analisarComTexto(texto, filename){
+  const cats = (D.categories||CATS).map(c => c.icon+' '+c.label+' (id:'+c.id+')').join(', ');
+  const cards = (D.cards||[]).map(c => c.name+' (id:'+c.id+')').join(', ');
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "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",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 3000,
+      messages: [{
+        role: "user",
+        content: `Analise este extrato bancário e extraia TODAS as transações.
+
+Categorias: ${cats}
+Cartões: ${cards}
+
+Retorne SOMENTE JSON sem markdown:
+{"transactions":[{"date":"YYYY-MM-DD","description":"descrição","value":123.45,"type":"expense","category":"id","cardId":null,"paid":true}]}
+
+Regras: expense=débitos, income=créditos. value positivo. Ignore saldos e totais.
+
+Extrato:
+${texto}`
+      }]
+    })
+  });
+
+  if(!resp.ok){
+    const errText = await resp.text().catch(()=>'');
+    throw new Error('API ' + resp.status + (errText?': '+errText.slice(0,120):''));
+  }
+  const data = await resp.json();
+  console.log('API response texto:', JSON.stringify(data).slice(0,200));
+  if(data.error) throw new Error(data.error.message||data.error.type||JSON.stringify(data.error).slice(0,150));
+  const text = (data.content||[]).map(b => b.text||'').join('');
+  if(!text) throw new Error('Resposta vazia — verifique a chave da API');
+  let parsed;
+  try{
+    const clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+  }catch(e){ throw new Error('IA retornou: '+text.slice(0,150)); }
+  return parsed.transactions||[];
+}
+
+// Mostrar preview antes de confirmar
+function mostrarPreviewTxs(txs, statusEl, previewEl, erros){
+  const cats2 = D.categories||CATS;
+  const expCount = txs.filter(t => t.type==='expense').length;
+  const incCount = txs.filter(t => t.type==='income').length;
+  const totalExp = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+parseFloat(t.value||0),0);
+  const totalInc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+parseFloat(t.value||0),0);
+
+  statusEl.innerHTML = `<div style="padding:10px 12px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:.78rem;color:#10B981">
+    ✅ ${txs.length} transações encontradas — ${expCount} despesas (${fmt(totalExp)}) · ${incCount} receitas (${fmt(totalInc)})
+    ${erros.length?`<div style="margin-top:4px;font-size:.68rem;color:var(--ylw)">⚠️ ${erros.join(' | ')}</div>`:''}
+  </div>`;
+
+  if(!previewEl) return;
+
+  // Agrupar por mês para exibição
+  const byMonth = {};
+  txs.forEach(t => {
+    const key = (t.date||'').slice(0,7);
+    if(!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(t);
+  });
+
+  let html = `<div style="margin-top:10px">
+    <div style="font-size:.78rem;font-weight:700;color:var(--txt);margin-bottom:10px">Confirmar importação de ${txs.length} transações:</div>`;
+
+  Object.keys(byMonth).sort().reverse().forEach(mes => {
+    const mTxs = byMonth[mes];
+    const [y,m] = mes.split('-');
+    html += `<div style="font-size:.7rem;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 5px">${MONTHS[parseInt(m)-1]||mes} ${y} · ${mTxs.length} lançamentos</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">`;
+    mTxs.forEach(t => {
+      const cat = cats2.find(ca => ca.id===t.category)||{icon:'📦',label:'Outros'};
+      const isInc = t.type==='income';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:8px;border:1px solid var(--brd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.74rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat.icon} ${(t.description||'').slice(0,32)}</div>
+          <div style="font-size:.62rem;color:var(--txt2);margin-top:1px">${t.date||''}</div>
+        </div>
+        <span style="font-weight:800;color:${isInc?'var(--grn)':'var(--red)'};flex-shrink:0;margin-left:8px;font-size:.8rem">${isInc?'+':'-'}${fmt(parseFloat(t.value||0))}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<div style="display:flex;gap:8px;margin-top:12px;position:sticky;bottom:0;background:var(--bg2);padding:8px 0">
+    <button class="btn-add" id="btn-confirm-pdf" style="flex:1;font-size:.8rem;padding:10px">✅ Importar tudo</button>
+    <button class="btn-s" onclick="document.getElementById('pdf-preview').innerHTML='';document.getElementById('pdf-status').innerHTML=''" style="padding:10px 14px;font-size:.8rem">✕ Cancelar</button>
+  </div></div>`;
+
+  previewEl.innerHTML = html;
+  window._pendingPdfTxs = txs;
+  document.getElementById('btn-confirm-pdf').onclick = function(){
+    window.confirmarImportPDF(window._pendingPdfTxs);
+  };
+}
 
 window.processarTextoPDF = async function(){
   const ta = document.getElementById('pdf-text-manual');
   if(!ta || !ta.value.trim()) return;
   const statusEl = document.getElementById('pdf-status');
   const previewEl = document.getElementById('pdf-preview');
-  statusEl.innerHTML = '<div style="padding:10px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:7px;font-size:.78rem;color:var(--acc2)">🤖 IA analisando o texto...</div>';
-  await analisarTextoBancario(ta.value.trim(), statusEl, previewEl);
-};
-
-async function analisarTextoBancario(textContent, statusEl, previewEl){
-  const cats = (D.categories||CATS).map(function(cat){ return cat.icon+' '+cat.label+' (id:'+cat.id+')'; }).join(', ');
-  const cards = (D.cards||[]).map(function(card){ return card.name+' (id:'+card.id+')'; }).join(', ');
-
-  const response = await fetch("https://potptpukrzccicpbpfkj.supabase.co/functions/v1/ai-proxy", {
-    method: "POST",
-    headers: {"Content-Type":"application/json","Authorization":"Bearer "+SB_KEY},
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2000,
-      messages: [{
-        role: "user",
-        content: "Analise este extrato bancário/fatura e extraia as transações. Retorne SOMENTE JSON válido sem markdown.\n\nCategorias: "+cats+"\nCartões: "+cards+"\n\nFormato:\n{\"transactions\":[{\"date\":\"YYYY-MM-DD\",\"description\":\"descrição\",\"value\":123.45,\"type\":\"expense\",\"category\":\"id\",\"cardId\":null}]}\n\nRegras: type='expense' para débitos/compras, 'income' para créditos/entradas. value sempre positivo. Se ano não aparecer use 2026. Ignore linhas de saldo e limite.\n\nExtrato:\n" + textContent.slice(0, 6000)
-      }]
-    })
-  });
-
-  if(!response.ok){
-    const err = await response.text();
-    throw new Error('API ' + response.status + ': ' + err.slice(0,100));
-  }
-
-  const data = await response.json();
-  const text = (data.content||[]).map(function(b){ return b.text||''; }).join('');
-
-  let parsed;
+  statusEl.innerHTML = `<div style="padding:10px;background:rgba(123,97,255,.08);border:1px solid rgba(123,97,255,.2);border-radius:10px;font-size:.78rem;color:var(--acc2)">🤖 IA analisando o texto colado...</div>`;
+  if(previewEl) previewEl.innerHTML = '';
   try{
-    parsed = JSON.parse(text.replace(/```json/g,'').replace(/```/g,'').trim());
-  }catch(e){
-    statusEl.innerHTML = '<div style="padding:10px;background:rgba(255,75,107,.08);border:1px solid rgba(255,75,107,.2);border-radius:7px;font-size:.78rem;color:var(--red)">❌ Não foi possível identificar transações. Verifique se o arquivo contém um extrato bancário.</div>';
-    return;
+    const txs = await analisarComTexto(ta.value.trim(), 'texto-manual');
+    if(txs.length === 0){
+      statusEl.innerHTML = `<div style="padding:10px;background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.2);border-radius:10px;font-size:.78rem;color:var(--ylw)">⚠️ Nenhuma transação identificada. Verifique se o texto contém datas e valores.</div>`;
+      return;
+    }
+    mostrarPreviewTxs(txs, statusEl, previewEl, []);
+  }catch(err){
+    const msg = err.message||String(err);
+    const isAuthErr = msg.includes('401')||msg.includes('api-key')||msg.includes('authentication')||msg.includes('invalid x-api-key');
+    statusEl.innerHTML = `<div style="padding:10px 12px;background:rgba(255,75,107,.08);border:1px solid rgba(255,75,107,.2);border-radius:10px;font-size:.78rem;color:var(--red)">
+      ❌ ${isAuthErr ? 'Chave da API expirada. Acesse console.anthropic.com → API Keys → crie uma nova chave.' : 'Erro: '+msg}
+    </div>`;
+    console.error('Erro importação:', err);
   }
-
-  const txs = parsed.transactions||[];
-  if(txs.length === 0){
-    statusEl.innerHTML = '<div style="padding:10px;background:rgba(255,184,48,.08);border:1px solid rgba(255,184,48,.2);border-radius:7px;font-size:.78rem;color:var(--ylw)">⚠️ Nenhuma transação encontrada. Verifique o arquivo.</div>';
-    return;
-  }
-
-  const cats2 = D.categories||CATS;
-  const previewHTML = '<div style="font-size:.8rem;font-weight:700;color:var(--txt);margin-bottom:8px">'+txs.length+' transações encontradas — confirmar importação?</div>'
-    + '<div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:10px">'
-    + txs.map(function(t){
-        const cat = cats2.find(function(ca){ return ca.id===t.category; })||{icon:'📦',label:'Outros'};
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:6px;font-size:.76rem">'
-          + '<div style="flex:1;min-width:0;overflow:hidden"><span style="color:var(--txt2);margin-right:5px;font-size:.68rem">'+(t.date||'')+'</span>'
-          + '<span style="color:var(--txt)">'+(t.description||'').slice(0,30)+'</span>'
-          + '<span style="font-size:.66rem;color:var(--txt2);margin-left:4px">'+cat.icon+'</span></div>'
-          + '<span style="font-weight:700;color:'+(t.type==="income"?"var(--grn)":"var(--red)")+';flex-shrink:0;margin-left:6px">'+(t.type==="income"?"+":"-")+fmt(t.value)+'</span>'
-          + '</div>';
-      }).join('')
-    + '</div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button class="btn-add" id="btn-confirm-pdf" style="font-size:.78rem">✅ Importar</button>'
-    + '<button class="btn-s" onclick="document.getElementById(\'pdf-preview\').innerHTML=\'\';document.getElementById(\'pdf-status\').innerHTML=\'\'" style="font-size:.78rem">✕ Cancelar</button>'
-    + '</div>';
-
-  statusEl.innerHTML = '<div style="padding:8px 10px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);border-radius:7px;font-size:.78rem;color:var(--grn)">✅ Leitura concluída! '+txs.length+' transações encontradas.</div>';
-  if(previewEl){
-    previewEl.innerHTML = previewHTML;
-    window._pendingPdfTxs = txs;
-    document.getElementById('btn-confirm-pdf').onclick = function(){
-      window.confirmarImportPDF(window._pendingPdfTxs);
-    };
-  }
-}
+};
 
 window.confirmarImportPDF = function(txsJson){
   let txs;
@@ -3387,9 +3699,9 @@ window.confirmarImportPDF = function(txsJson){
       value: parseFloat(t.value)||0,
       category: t.category||"others",
       date: t.date||tod(),
-      description: t.description||"Importado PDF",
+      description: t.description||"Importado",
       cardId: t.cardId||null,
-      paid: false
+      paid: t.paid !== undefined ? t.paid : false
     };
   });
 
@@ -3397,7 +3709,25 @@ window.confirmarImportPDF = function(txsJson){
   save(updated);
 
   document.getElementById('pdf-preview').innerHTML = '';
-  document.getElementById('pdf-status').innerHTML = '<div style="padding:10px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);border-radius:7px;font-size:.78rem;color:var(--grn)">🎉 '+newTxs.length+' transações importadas com sucesso!</div>';
+  document.getElementById('pdf-status').innerHTML = `<div style="padding:12px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:.8rem;color:#10B981;text-align:center">
+    🎉 <strong>${newTxs.length} transações importadas</strong> com sucesso!
+  </div>`;
+};
+
+
+window.salvarLimites=function(){
+  const cats2=D.categories||CATS;
+  const newLimits={};
+  cats2.forEach(cat=>{
+    const el=document.getElementById('lim_'+cat.id);
+    if(el&&el.value&&parseFloat(el.value)>0){
+      newLimits[cat.id]=parseFloat(el.value);
+    }
+  });
+  const updated={...D,limits:newLimits};
+  save(updated);
+  closeM();
+  renderMain();
 };
 
 window.expBkp=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify({version:2,userId:U.id,exportedAt:new Date().toISOString(),data:D},null,2)],{type:"application/json"}));a.download=`gasto0-${tod()}.json`;a.click();const m=document.getElementById("smsg");if(m)m.innerHTML=`<div style="margin-top:9px;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:.75rem;color:var(--txt)">✅ Backup exportado!</div>`;};
@@ -3423,6 +3753,33 @@ function saveMInputs(){
   if(cat)MS.category=cat.value;
 }
 window.openM=function(type,id){
+  if(type==='editLimits'){
+    const cats2=D.categories||CATS;
+    const limits=D.limits||{};
+    document.getElementById('modal-root').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeM()">
+      <div class="modal">
+        <div class="mh"><h2>🎯 Limite de Gastos</h2><button class="mclose" onclick="closeM()">✕</button></div>
+        <div style="padding:0 2px;max-height:60vh;overflow-y:auto">
+          <div style="font-size:.74rem;color:var(--txt2);margin-bottom:16px">Defina o limite mensal por categoria. Deixe em branco para não limitar.</div>
+          ${cats2.map(cat=>`
+            <div style="margin-bottom:12px">
+              <label style="font-size:.74rem;color:var(--txt2);display:flex;align-items:center;gap:5px;margin-bottom:4px">
+                <span>${cat.icon}</span><span>${cat.label}</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:.76rem;color:var(--txt2)">R$</span>
+                <input type="number" id="lim_${cat.id}" class="inp" style="flex:1;padding:9px 10px;font-size:.84rem"
+                  placeholder="Sem limite" value="${limits[cat.id]||''}" min="0" step="10"/>
+              </div>
+            </div>`).join('')}
+          <button class="btn-add" style="width:100%;margin-top:16px;padding:12px;font-size:.84rem" onclick="salvarLimites()">💾 Salvar limites</button>
+          <button class="btn-s" style="width:100%;margin-top:8px;padding:10px;font-size:.8rem" onclick="closeM()">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
   MS={type,id:id||null,color:"#7B61FF",icon:"🎯",txType:"expense",billIcon:"💡"};
   if(type==="editCard"&&id){const c=(D.cards||[]).find(x=>x.id===id);if(c)Object.assign(MS,c);}
   if(type==="editGoal"&&id){const g=(D.goals||[]).find(x=>x.id===id);if(g)Object.assign(MS,g);}
