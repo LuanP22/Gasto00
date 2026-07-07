@@ -749,6 +749,7 @@ function demoD(){
 }
 
 // ── STATE ────────────────────────────────────────────────────
+let FD_FROM="",FD_TO="";
 let U=null,D=null,PAGE="dashboard",REP_Y=new Date().getFullYear(),REP_M=new Date().getMonth(),FT="all",FC="all",FS="",FP="all",FM="all",FPAY="all",REP_CAT="all",ADD_TO=null,ADD_VAL="",DASH_SEL=null,CMP_A=null,CMP_B=null;
 let DASH_M=new Date().getMonth(),DASH_Y=new Date().getFullYear();
 let CHART_SEL={m:new Date().getMonth(),y:new Date().getFullYear()};
@@ -935,7 +936,7 @@ function renderSidebar(){
       <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
     </div>`;
 }
-window.goPage=p=>{PAGE=p;FS="";FT="all";FC="all";FP="all";FM="all";FPAY="all";REP_CAT="all";ADD_TO=null;ADD_VAL="";DASH_SEL=null;CMP_A=null;CMP_B=null;window.CMP_TYPE="expense";if(p!=="dashboard"){DASH_M=new Date().getMonth();DASH_Y=new Date().getFullYear();}if(p==="gestor"){renderSidebar();loadChatHistory().then(()=>renderMain());}else{renderSidebar();renderMain();}};
+window.goPage=p=>{PAGE=p;FS="";FT="all";FC="all";FP="all";FM="all";FPAY="all";FD_FROM="";FD_TO="";REP_CAT="all";ADD_TO=null;ADD_VAL="";DASH_SEL=null;CMP_A=null;CMP_B=null;window.CMP_TYPE="expense";if(p!=="dashboard"){DASH_M=new Date().getMonth();DASH_Y=new Date().getFullYear();}if(p==="gestor"){renderSidebar();loadChatHistory().then(()=>renderMain());}else{renderSidebar();renderMain();}};
 window.goGestor=()=>{PAGE="gestor";renderSidebar();renderMain();};
 
 // ── MAIN ─────────────────────────────────────────────────────
@@ -1732,6 +1733,8 @@ function pgTransactions(){
       if(FPAY==="cash"&&pm!=="cash")return false;
     }
     if(FS){const q=FS.toLowerCase(),c=getCat(t.category);return(t.description||"").toLowerCase().includes(q)||(c.label||"").toLowerCase().includes(q);}
+    if(FD_FROM){const d=new Date(t.date);const from=new Date(FD_FROM);if(d<from)return false;}
+    if(FD_TO){const d=new Date(t.date);const to=new Date(FD_TO);to.setHours(23,59,59);if(d>to)return false;}
     return true;
   }).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
@@ -1787,6 +1790,15 @@ function pgTransactions(){
 
     <!-- Filtros secundários -->
     <div class="frow">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:var(--bg3);border-radius:12px;border:1px solid var(--brd);width:100%">
+        <span style="font-size:.68rem;color:var(--txt2);font-weight:600;flex-shrink:0">📅 Período:</span>
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px">
+          <input type="date" class="inp" id="fd-from" value="${FD_FROM}" onchange="FD_FROM=this.value;FM='all';renderMain()" style="flex:1;padding:6px 8px;font-size:.74rem;border-radius:8px"/>
+          <span style="font-size:.7rem;color:var(--txt2);flex-shrink:0">até</span>
+          <input type="date" class="inp" id="fd-to" value="${FD_TO}" onchange="FD_TO=this.value;FM='all';renderMain()" style="flex:1;padding:6px 8px;font-size:.74rem;border-radius:8px"/>
+        </div>
+        ${FD_FROM||FD_TO?`<button onclick="FD_FROM='';FD_TO='';renderMain()" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);color:var(--red);padding:5px 10px;border-radius:8px;font-size:.68rem;cursor:pointer;white-space:nowrap">✕ Limpar</button>`:""}
+      </div>
       <input class="fsearch inp" id="tx-search" placeholder="Buscar..." value="${FS}" oninput="FS=this.value;renderTxTable()"/>
       <select class="fsel inp" onchange="FM=this.value;renderMain()">
         <option value="all"${FM==="all"?" selected":""}>Todos os meses</option>
@@ -2549,7 +2561,7 @@ function pgReports(){
         </div>`;
 
       return totHtml+catHtml;
-    })()}
+    })}
   </div>
   `}`;
 }
