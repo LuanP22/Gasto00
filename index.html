@@ -2168,14 +2168,14 @@ function calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats){
     return "R$"+Math.abs(v).toFixed(0);
   }
 
-  // ── Dados ──────────────────────────────────────────────────────
+  // ── Dados ────────────────────────────────────────────────────
   var tiA=txsA.filter(function(t){return t.type==="income";}).reduce(function(a,t){return a+t.value;},0);
   var teA=txsA.filter(function(t){return t.type==="expense";}).reduce(function(a,t){return a+t.value;},0);
   var tiB=txsB.filter(function(t){return t.type==="income";}).reduce(function(a,t){return a+t.value;},0);
   var teB=txsB.filter(function(t){return t.type==="expense";}).reduce(function(a,t){return a+t.value;},0);
   var balA=tiA-teA, balB=tiB-teB;
 
-  // ── Categorias ─────────────────────────────────────────────────
+  // ── Categorias de despesa ────────────────────────────────────
   var catExpA={},catExpB={};
   txsA.filter(function(t){return t.type==="expense";}).forEach(function(t){catExpA[t.category]=(catExpA[t.category]||0)+t.value;});
   txsB.filter(function(t){return t.type==="expense";}).forEach(function(t){catExpB[t.category]=(catExpB[t.category]||0)+t.value;});
@@ -2183,80 +2183,10 @@ function calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats){
   allCatIds.sort(function(a,b){return((catExpA[b]||0)+(catExpB[b]||0))-((catExpA[a]||0)+(catExpA[a]||0));});
   var topCats=allCatIds.slice(0,6).map(function(id){
     var cat=cats.find(function(c){return c.id===id;})||{icon:"",label:id};
-    return {label:cat.icon+" "+cat.label,valA:catExpA[id]||0,valB:catExpB[id]||0};
+    return {icon:cat.icon,label:cat.label,valA:catExpA[id]||0,valB:catExpB[id]||0};
   });
 
-  // ── Gráfico de barras verticais agrupadas (HTML puro, responsivo) ──
-  // groups = [{label, valA, valB}], cada grupo tem 2 barras lado a lado
-  function columnChart(groups,colA,colB,lblA,lblB,chartH){
-    if(!chartH)chartH=110;
-    var maxV=1;
-    groups.forEach(function(g){if(g.valA>maxV)maxV=g.valA;if(g.valB>maxV)maxV=g.valB;});
-
-    // Wrapper flex — cada grupo ocupa espaço igual
-    var html='';
-    // legenda
-    html+='<div style="display:flex;gap:12px;margin-bottom:10px">'
-      +'<div style="display:flex;align-items:center;gap:4px">'
-      +'<div style="width:8px;height:8px;border-radius:2px;background:'+colA+'"></div>'
-      +'<span style="font-size:.62rem;font-weight:700;color:var(--txt2)">'+lblA+'</span></div>'
-      +'<div style="display:flex;align-items:center;gap:4px">'
-      +'<div style="width:8px;height:8px;border-radius:2px;background:'+colB+'"></div>'
-      +'<span style="font-size:.62rem;font-weight:700;color:var(--txt2)">'+lblB+'</span></div>'
-      +'</div>';
-
-    // área do gráfico
-    html+='<div style="display:flex;align-items:flex-end;gap:6px;height:'+chartH+'px;padding-bottom:20px;position:relative">';
-
-    groups.forEach(function(g,i){
-      var hA=maxV>0?Math.max((g.valA/maxV)*(chartH-20),g.valA>0?4:0):0;
-      var hB=maxV>0?Math.max((g.valB/maxV)*(chartH-20),g.valB>0?4:0):0;
-      var isLast=i===groups.length-1;
-
-      html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0;min-width:0">';
-
-      // par de barras
-      html+='<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:'+(chartH-20)+'px">';
-
-      // barra A
-      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative">';
-      if(g.valA>0){
-        html+='<div style="position:absolute;bottom:'+(hA+2)+'px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:'+colA+';white-space:nowrap;overflow:hidden">'+fmtK(g.valA)+'</div>';
-      }
-      html+='<div style="height:'+hA.toFixed(0)+'px;background:'+colA+';border-radius:4px 4px 0 0;transition:height .5s ease;min-height:'+(g.valA>0?'3':'0')+'px"></div>';
-      html+='</div>';
-
-      // barra B
-      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative">';
-      if(g.valB>0){
-        html+='<div style="position:absolute;bottom:'+(hB+2)+'px;left:0;right:0;text-align:center;font-size:9px;font-weight:700;color:'+colB+';white-space:nowrap;overflow:hidden">'+fmtK(g.valB)+'</div>';
-      }
-      html+='<div style="height:'+hB.toFixed(0)+'px;background:'+colB+';border-radius:4px 4px 0 0;transition:height .5s ease;min-height:'+(g.valB>0?'3':'0')+'px"></div>';
-      html+='</div>';
-
-      html+='</div>'; // fim par
-
-      // linha base + label
-      html+='<div style="width:100%;height:2px;background:var(--brd);border-radius:1px"></div>';
-      var lbl=g.label;
-      // truncar label: tirar emoji se tiver
-      var parts=lbl.trim().split(' ');
-      var em=parts[0]||'';
-      var nm=parts.slice(1).join(' ');
-      var short=nm.length>5?nm.slice(0,5)+'…':nm;
-      html+='<div style="margin-top:3px;text-align:center;line-height:1.2">'
-        +'<div style="font-size:11px">'+em+'</div>'
-        +'<div style="font-size:8px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">'+short+'</div>'
-        +'</div>';
-
-      html+='</div>'; // fim grupo
-    });
-
-    html+='</div>'; // fim área
-    return html;
-  }
-
-  // ── Vencedor ───────────────────────────────────────────────────
+  // ── Vencedor ────────────────────────────────────────────────
   var winner="",msg="";
   if(t2==="income"){
     if(tiA!==tiB){
@@ -2288,25 +2218,77 @@ function calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats){
       +'<div style="font-size:.66rem;color:var(--txt2);margin-top:1px">'+msg+'</div></div></div>';
   }
 
-  // ── Gráfico despesas por categoria ────────────────────────────
+  // ── Gráfico de barras verticais agrupadas ────────────────────
   if(topCats.length>0){
-    html+='<div style="background:var(--bg2);border-radius:16px;padding:16px;margin-bottom:12px;border:1px solid var(--brd)">'
-      +'<div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:4px">📂 Despesas por categoria</div>'
-      +columnChart(topCats,colA,colB,lblA,lblB,130)
-      +'</div>';
+    var maxCat=Math.max.apply(null,topCats.map(function(c){return Math.max(c.valA,c.valB);}));
+    maxCat=Math.max(maxCat,1);
+    var BAR_H=100; // altura útil das barras em px
+
+    html+='<div style="background:var(--bg2);border-radius:16px;padding:14px 12px 10px;margin-bottom:12px;border:1px solid var(--brd)">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+    html+='<div style="font-size:.72rem;font-weight:700;color:var(--txt)">📂 Despesas por categoria</div>';
+    html+='<div style="display:flex;gap:10px">'
+      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colA+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblA+'</span></div>'
+      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colB+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblB+'</span></div>'
+      +'</div></div>';
+
+    // Área do gráfico: barras + labels abaixo
+    html+='<div style="display:flex;align-items:flex-end;gap:4px">';
+    topCats.forEach(function(cat){
+      var hA=Math.max((cat.valA/maxCat)*BAR_H, cat.valA>0?6:0);
+      var hB=Math.max((cat.valB/maxCat)*BAR_H, cat.valB>0?6:0);
+      var nm=cat.label.length>6?cat.label.slice(0,5)+'…':cat.label;
+
+      html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;min-width:0">';
+
+      // valores acima das barras (só se > 0)
+      html+='<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:'+BAR_H+'px;margin-bottom:4px">';
+
+      // barra A
+      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">';
+      if(cat.valA>0){
+        html+='<div style="font-size:8px;font-weight:700;color:'+colA+';margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center">'+fmtK(cat.valA)+'</div>';
+      }
+      html+='<div style="width:100%;height:'+hA.toFixed(0)+'px;background:'+colA+';border-radius:4px 4px 0 0"></div>';
+      html+='</div>';
+
+      // barra B
+      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">';
+      if(cat.valB>0){
+        html+='<div style="font-size:8px;font-weight:700;color:'+colB+';margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center">'+fmtK(cat.valB)+'</div>';
+      }
+      html+='<div style="width:100%;height:'+hB.toFixed(0)+'px;background:'+colB+';border-radius:4px 4px 0 0"></div>';
+      html+='</div>';
+
+      html+='</div>'; // fim par barras
+
+      // linha base
+      html+='<div style="width:100%;height:1px;background:var(--brd);margin-bottom:5px"></div>';
+
+      // label: emoji + nome
+      html+='<div style="text-align:center;min-width:0;width:100%">'
+        +'<div style="font-size:12px;line-height:1">'+cat.icon+'</div>'
+        +'<div style="font-size:7px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nm+'</div>'
+        +'</div>';
+
+      html+='</div>'; // fim coluna
+    });
+    html+='</div>'; // fim flex
+    html+='</div>'; // fim card
   }
 
-  // ── Variação ───────────────────────────────────────────────────
+  // ── Variação por categoria ───────────────────────────────────
   if(topCats.length>0){
     var sorted=topCats.slice().sort(function(a,b){return Math.abs(b.valB-b.valA)-Math.abs(a.valB-a.valA);});
-    html+='<div style="background:var(--bg2);border-radius:16px;padding:16px;border:1px solid var(--brd)">'
+    html+='<div style="background:var(--bg2);border-radius:16px;padding:14px;border:1px solid var(--brd)">'
       +'<div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:10px">📉 Variação</div>'
       +'<div style="display:flex;flex-direction:column;gap:5px">';
     sorted.forEach(function(cat){
       var delta=cat.valB-cat.valA;
       var isUp=delta>0;
+      if(delta===0)return;
       html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--brd)">'
-        +'<span style="font-size:.72rem;font-weight:600;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat.label+'</span>'
+        +'<span style="font-size:.72rem;font-weight:600;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat.icon+' '+cat.label+'</span>'
         +'<span style="font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:7px;flex-shrink:0;margin-left:8px;background:'+(isUp?'rgba(244,63,94,.12)':'rgba(16,185,129,.12)')+';color:'+(isUp?'#F43F5E':'#10B981')+'">'+(isUp?'▲':'▼')+' '+fmtK(Math.abs(delta))+'</span>'
         +'</div>';
     });
@@ -2508,7 +2490,7 @@ function pgReports(){
 
   <div class="chart-modern" style="margin-top:16px;padding:20px">
     <div style="margin-bottom:18px">
-      <div style="font-size:.9rem;font-weight:800;color:var(--txt);margin-bottom:4px">⚖️ Comparar Meses</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:.9rem;font-weight:800;color:var(--txt)">⚖️ Comparar Meses</div><button id="cmp-chart-btn" onclick="(function(){var el=document.getElementById('cmp-chart');var btn=document.getElementById('cmp-chart-btn');if(!el)return;var open=el.style.display==='none';el.style.display=open?'block':'none';btn.textContent=open?'Ocultar gráfico ▲':'Ver gráfico 📊';btn.style.background=open?'rgba(123,97,255,.15)':'var(--bg3)';})()" style="font-size:.68rem;font-weight:700;color:var(--acc2);background:var(--bg3);border:1px solid var(--brd);border-radius:10px;padding:5px 11px;cursor:pointer;transition:all .2s;white-space:nowrap">Ver gráfico 📊</button></div>
       <div style="font-size:.7rem;color:var(--txt2)">Selecione 2 meses e o tipo para comparar</div>
     </div>
 
@@ -2560,34 +2542,6 @@ function pgReports(){
       // Cores fixas: A=amarelo, B=roxo
       const colA='#F59E0B';
       const colB='#8B5CF6';
-
-      const diff=totB-totA;
-      const diffPct=totA>0?((diff/totA)*100):0;
-
-      // Totais
-      const totHtml=`<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:20px">
-        <div style="background:${colA}22;border:2px solid ${colA}55;border-radius:12px;padding:12px;text-align:center">
-          <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:4px">
-            <div style="width:8px;height:8px;border-radius:50%;background:${colA}"></div>
-            <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase">${lblA}</div>
-          </div>
-          <div style="font-size:1.05rem;font-weight:800;color:${colA}">${fmt(totA)}</div>
-          <div style="font-size:.6rem;color:var(--txt2);margin-top:2px">${txsA.length} lançamentos</div>
-        </div>
-        <div style="text-align:center;padding:0 4px">
-          <div style="font-size:.58rem;color:var(--txt2);margin-bottom:3px">diferença</div>
-          <div style="font-size:.85rem;font-weight:800;color:${diff>=0?colB:colA}">${diff>=0?'+':''}${fmt(diff)}</div>
-          <div style="font-size:.62rem;font-weight:700;color:${diff>=0?colB:colA}">${diff>=0?'▲':'▼'} ${Math.abs(diffPct).toFixed(1)}%</div>
-        </div>
-        <div style="background:${colB}22;border:2px solid ${colB}55;border-radius:12px;padding:12px;text-align:center">
-          <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:4px">
-            <div style="width:8px;height:8px;border-radius:50%;background:${colB}"></div>
-            <div style="font-size:.65rem;color:var(--txt2);font-weight:700;text-transform:uppercase">${lblB}</div>
-          </div>
-          <div style="font-size:1.05rem;font-weight:800;color:${colB}">${fmt(totB)}</div>
-          <div style="font-size:.6rem;color:var(--txt2);margin-top:2px">${txsB.length} lançamentos</div>
-        </div>
-      </div>`;
 
       // Gráfico por categoria — sem lançamentos
       const allCatIds=[...new Set([...txsA.map(t=>t.category),...txsB.map(t=>t.category)])];
@@ -2641,7 +2595,7 @@ function pgReports(){
           }).join('')}
         </div>`;
 
-      return totHtml+catHtml+calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats);
+      return catHtml+'<div id="cmp-chart" style="display:none;margin-top:12px">'+calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats)+'</div>';
     })()}
   </div>
   `}`;
