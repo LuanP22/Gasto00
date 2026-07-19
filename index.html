@@ -2754,7 +2754,7 @@ function pgReports(){
               <span style="font-size:.6rem;font-weight:700;color:${best.col};padding:2px 7px;background:${best.col}18;border-radius:20px">${best.lbl} maior</span>
             </div>
             ${months.map((mo,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-              <div style="width:14px;font-size:.6rem;font-weight:700;color:${mo.col};flex-shrink:0;text-align:center">${i+1}</div>
+              <div style="font-size:.6rem;font-weight:700;color:${mo.col};flex-shrink:0;white-space:nowrap;min-width:40px">${mo.lbl}</div>
               <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden"><div style="height:100%;width:${pcts[i].toFixed(1)}%;background:${mo.col};border-radius:5px;transition:width .5s"></div></div>
               <span style="font-size:.7rem;font-weight:800;color:${mo.col};min-width:72px;text-align:right">${fmt(vals[i])}</span>
             </div>`).join('')}
