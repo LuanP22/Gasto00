@@ -2184,16 +2184,17 @@ function cmpChart(months,catRows,maxCat){
   var html='';
 
   // Vencedor (menor despesa)
-  var byExp=months.filter(function(m){return m.exp>0;}).slice().sort(function(a,b){return a.exp-b.exp;});
-  if(byExp.length>=2){
-    var win=byExp[0],run=byExp[byExp.length-1];
-    var d=run.exp-win.exp;
-    var pct=run.exp>0?((d/run.exp)*100).toFixed(0):0;
+  var typeKey=window.CMP_TYPE==='income'?'inc':'exp';
+  var byVal=months.filter(function(m){return m[typeKey]>0;}).slice().sort(function(a,b){return typeKey==='inc'?b[typeKey]-a[typeKey]:a[typeKey]-b[typeKey];});
+  if(byVal.length>=2){
+    var win=byVal[0],run=byVal[byVal.length-1];
+    var d=Math.abs(run[typeKey]-win[typeKey]);
+    var pct=run[typeKey]>0?((d/run[typeKey])*100).toFixed(0):0;
     html+='<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);margin-bottom:14px">'
       +'<span style="font-size:20px">🏆</span>'
       +'<div><div style="font-size:.58rem;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:.5px">Mês campeão</div>'
       +'<div style="font-size:.82rem;font-weight:800;color:#10B981">'+win.lbl+'</div>'
-      +'<div style="font-size:.66rem;color:var(--txt2);margin-top:1px">Gastou <strong>R$ '+d.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</strong> menos que '+run.lbl+' ('+pct+'%)</div>'
+      +'<div style="font-size:.66rem;color:var(--txt2);margin-top:1px">'+(typeKey==="inc"?'Recebeu':'Gastou')+' <strong>R$ '+d.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</strong> menos que '+run.lbl+' ('+pct+'%)</div>'
       +'</div></div>';
   }
 
@@ -2671,14 +2672,14 @@ function pgReports(){
           const key=mo.y+'-'+mo.m;
           const idx=CMP_MONTHS.indexOf(key);
           const sel=idx>=0;
-          const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899'];
+          const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899','#F97316','#06B6D4','#A855F7','#84CC16','#EAB308','#14B8A6'];
           const col=sel?COLS[idx%COLS.length]:'var(--brd)';
           const lbl=MONTHS[mo.m].slice(0,3)+' '+String(mo.y).slice(2);
           return`<button onclick="(function(){
             var k='${key}';
             var i=CMP_MONTHS.indexOf(k);
             if(i>=0){CMP_MONTHS.splice(i,1);}
-            else if(CMP_MONTHS.length<6){CMP_MONTHS.push(k);}
+            else{CMP_MONTHS.push(k);}
             renderMain();
           })()" style="padding:6px 11px;border-radius:20px;border:2px solid ${col};background:${sel?col+'22':'transparent'};color:${sel?col:'var(--txt2)'};font-size:.72rem;font-weight:${sel?'700':'400'};cursor:pointer;transition:all .2s;position:relative">
             ${sel?`<span style="position:absolute;top:-6px;right:-5px;width:16px;height:16px;border-radius:50%;background:${col};color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1">${idx+1}</span>`:''}
@@ -2688,7 +2689,7 @@ function pgReports(){
       </div>
       ${CMP_MONTHS.length>0?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)">
         ${CMP_MONTHS.map((k,i)=>{
-          const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899'];
+          const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899','#F97316','#06B6D4','#A855F7','#84CC16','#EAB308','#14B8A6'];
           const col=COLS[i%COLS.length];
           const [y,m]=k.split('-').map(Number);
           return`<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:${col}"></div><span style="font-size:.64rem;font-weight:700;color:${col}">${MONTHS[m]+' '+y}</span></div>`;
@@ -2704,8 +2705,8 @@ function pgReports(){
     </div>
 
         ${(()=>{
-      if(!CMP_MONTHS||CMP_MONTHS.length<2) return`<div style="text-align:center;padding:32px 0;color:var(--txt2);font-size:.8rem">👆 Selecione pelo menos 2 meses acima</div>`;
-      const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899'];
+      if(!CMP_MONTHS||CMP_MONTHS.length<2) return`<div style="text-align:center;padding:32px 0;color:var(--txt2);font-size:.8rem">👆 Selecione 2 ou mais meses acima para comparar</div>`;
+      const COLS=['#F59E0B','#8B5CF6','#10B981','#F43F5E','#3B82F6','#EC4899','#F97316','#06B6D4','#A855F7','#84CC16','#EAB308','#14B8A6'];
       const TYPE=CMP_TYPE||'expense';
       const txs=D.transactions||[];
       const cats=D.categories||CATS;
@@ -2721,16 +2722,17 @@ function pgReports(){
         return {key,y,m,lbl,col,txs:mt,inc,exp,tot:mt.reduce((s,t)=>s+t.value,0)};
       });
 
-      // Todas as categorias de despesa em qualquer mês
-      const allCatIds=[...new Set(months.flatMap(mo=>mo.txs.filter(t=>t.type==='expense').map(t=>t.category)))];
+      // Todas as categorias de qualquer mês (respeitando TYPE)
+      const typeFilter=t=>TYPE==='both'?true:t.type===TYPE;
+      const allCatIds=[...new Set(months.flatMap(mo=>mo.txs.filter(typeFilter).map(t=>t.category)))];
       allCatIds.sort((a,b)=>{
-        const totA=months.reduce((s,mo)=>s+mo.txs.filter(t=>t.type==='expense'&&t.category===a).reduce((ss,t)=>ss+t.value,0),0);
-        const totB=months.reduce((s,mo)=>s+mo.txs.filter(t=>t.type==='expense'&&t.category===b).reduce((ss,t)=>ss+t.value,0),0);
+        const totA=months.reduce((s,mo)=>s+mo.txs.filter(typeFilter).filter(t=>t.category===a).reduce((ss,t)=>ss+t.value,0),0);
+        const totB=months.reduce((s,mo)=>s+mo.txs.filter(typeFilter).filter(t=>t.category===b).reduce((ss,t)=>ss+t.value,0),0);
         return totB-totA;
       });
       const catRows=allCatIds.map(id=>{
         const cat=cats.find(c=>c.id===id)||{label:id,icon:'📦',color:'#888'};
-        const vals=months.map(mo=>mo.txs.filter(t=>t.type==='expense'&&t.category===id).reduce((s,t)=>s+t.value,0));
+        const vals=months.map(mo=>mo.txs.filter(typeFilter).filter(t=>t.category===id).reduce((s,t)=>s+t.value,0));
         return {cat,vals};
       });
       const maxCat=Math.max(...catRows.flatMap(r=>r.vals),1);
