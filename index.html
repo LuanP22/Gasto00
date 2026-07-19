@@ -750,7 +750,7 @@ function demoD(){
 
 // ── STATE ────────────────────────────────────────────────────
 let FD_FROM="",FD_TO="";
-let U=null,D=null,PAGE="dashboard",REP_Y=new Date().getFullYear(),REP_M=new Date().getMonth(),FT="all",FC="all",FS="",FP="all",FM="all",FPAY="all",REP_CAT="all",ADD_TO=null,ADD_VAL="",DASH_SEL=null,CMP_A=null,CMP_B=null;
+let U=null,D=null,PAGE="dashboard",REP_Y=new Date().getFullYear(),REP_M=new Date().getMonth(),FT="all",FC="all",FS="",FP="all",FM="all",FPAY="all",REP_CAT="all",ADD_TO=null,ADD_VAL="",DASH_SEL=null,CMP_A=null,CMP_B=null,CMP_C=null;
 let DASH_M=new Date().getMonth(),DASH_Y=new Date().getFullYear();
 let CHART_SEL={m:new Date().getMonth(),y:new Date().getFullYear()};
 let CHAT_MSGS=[],CHAT_LOADING=false,CHAT_DAILY_COUNT=0,CHAT_DATE="";
@@ -936,7 +936,7 @@ function renderSidebar(){
       <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
     </div>`;
 }
-window.goPage=p=>{PAGE=p;FS="";FT="all";FC="all";FP="all";FM="all";FPAY="all";FD_FROM="";FD_TO="";REP_CAT="all";ADD_TO=null;ADD_VAL="";DASH_SEL=null;CMP_A=null;CMP_B=null;window.CMP_TYPE="expense";if(p!=="dashboard"){DASH_M=new Date().getMonth();DASH_Y=new Date().getFullYear();}if(p==="gestor"){renderSidebar();loadChatHistory().then(()=>renderMain());}else{renderSidebar();renderMain();}};
+window.goPage=p=>{PAGE=p;FS="";FT="all";FC="all";FP="all";FM="all";FPAY="all";FD_FROM="";FD_TO="";REP_CAT="all";ADD_TO=null;ADD_VAL="";DASH_SEL=null;CMP_A=null;CMP_B=null;window.CMP_TYPE="expense";window.CMP_C=null;if(p!=="dashboard"){DASH_M=new Date().getMonth();DASH_Y=new Date().getFullYear();}if(p==="gestor"){renderSidebar();loadChatHistory().then(()=>renderMain());}else{renderSidebar();renderMain();}};
 window.goGestor=()=>{PAGE="gestor";renderSidebar();renderMain();};
 
 // ── MAIN ─────────────────────────────────────────────────────
@@ -2178,288 +2178,146 @@ function pgCategories(){
 // delCat handled by event delegation
 
 // ── REPORTS ──────────────────────────────────────────────────
-function calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats){
+function calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats,txsC,totC,lblC,hasCmp_C){
+  txsC=txsC||[];totC=totC||0;lblC=lblC||'';hasCmp_C=!!hasCmp_C;
   if(!totA&&!totB)return "";
-  var t2=window.CMP_TYPE||"expense";
-  var colA="#F59E0B",colB="#8B5CF6";
+  var colA="#F59E0B",colB="#8B5CF6",colC="#10B981";
 
   function fmtK(v){
     return "R$ "+Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   }
 
   // ── Dados ────────────────────────────────────────────────────
-  var tiA=txsA.filter(function(t){return t.type==="income";}).reduce(function(a,t){return a+t.value;},0);
   var teA=txsA.filter(function(t){return t.type==="expense";}).reduce(function(a,t){return a+t.value;},0);
-  var tiB=txsB.filter(function(t){return t.type==="income";}).reduce(function(a,t){return a+t.value;},0);
   var teB=txsB.filter(function(t){return t.type==="expense";}).reduce(function(a,t){return a+t.value;},0);
-  var balA=tiA-teA, balB=tiB-teB;
+  var teC=hasCmp_C?txsC.filter(function(t){return t.type==="expense";}).reduce(function(a,t){return a+t.value;},0):0;
 
-  // ── Categorias de despesa ────────────────────────────────────
-  var catExpA={},catExpB={};
+  // ── Todas as categorias ──────────────────────────────────────
+  var catExpA={},catExpB={},catExpC={};
   txsA.filter(function(t){return t.type==="expense";}).forEach(function(t){catExpA[t.category]=(catExpA[t.category]||0)+t.value;});
   txsB.filter(function(t){return t.type==="expense";}).forEach(function(t){catExpB[t.category]=(catExpB[t.category]||0)+t.value;});
-  var allCatIds=Array.from(new Set(Object.keys(catExpA).concat(Object.keys(catExpB))));
-  allCatIds.sort(function(a,b){return((catExpA[b]||0)+(catExpB[b]||0))-((catExpA[a]||0)+(catExpA[a]||0));});
-  var topCats=allCatIds.slice(0,6).map(function(id){
-    var cat=cats.find(function(c){return c.id===id;})||{icon:"",label:id};
-    return {icon:cat.icon,label:cat.label,valA:catExpA[id]||0,valB:catExpB[id]||0};
+  if(hasCmp_C)txsC.filter(function(t){return t.type==="expense";}).forEach(function(t){catExpC[t.category]=(catExpC[t.category]||0)+t.value;});
+
+  var allCatIds=Array.from(new Set(Object.keys(catExpA).concat(Object.keys(catExpB)).concat(Object.keys(catExpC))));
+  allCatIds.sort(function(a,b){return((catExpA[b]||0)+(catExpB[b]||0)+(catExpC[b]||0))-((catExpA[a]||0)+(catExpB[a]||0)+(catExpC[a]||0));});
+  var allCats=allCatIds.map(function(id){
+    var cat=cats.find(function(c){return c.id===id;})||{icon:"",label:id,color:"#888"};
+    return {icon:cat.icon,label:cat.label,color:cat.color||"#888",valA:catExpA[id]||0,valB:catExpB[id]||0,valC:catExpC[id]||0};
   });
 
-  // ── Vencedor ────────────────────────────────────────────────
-  var winner="",msg="";
-  if(t2==="income"){
-    if(tiA!==tiB){
-      winner=tiA>tiB?lblA:lblB;
-      var d=Math.abs(tiA-tiB),base=Math.min(tiA,tiB);
-      msg=winner+' teve <strong>'+fmtK(d)+'</strong> a mais em receitas'+(base>0?' ('+((d/base)*100).toFixed(0)+'%)':'');
-    }
-  } else if(t2==="expense"){
-    if(teA!==teB){
-      winner=teA<teB?lblA:lblB;
-      var d=Math.abs(teA-teB),base=Math.max(teA,teB);
-      msg=winner+' gastou <strong>'+fmtK(d)+'</strong> menos'+(base>0?' ('+((d/base)*100).toFixed(0)+'%)':'');
-    }
-  } else {
-    if(balA!==balB){
-      winner=balA>balB?lblA:lblB;
-      msg=winner+' teve melhor saldo: <strong>'+fmtK(Math.abs(balA-balB))+'</strong> a mais';
-    }
-  }
+  // ── Vencedor (menor despesa) ──────────────────────────────────
+  var months=[{lbl:lblA,te:teA,col:colA},{lbl:lblB,te:teB,col:colB}];
+  if(hasCmp_C)months.push({lbl:lblC,te:teC,col:colC});
+  var winner=months.reduce(function(a,b){return b.te<a.te?b:a;});
+  var runner=months.filter(function(m){return m!==winner;}).reduce(function(a,b){return b.te>a.te?b:a;});
 
   var html='';
-
-  // Card vencedor
-  if(winner){
+  if(teA||teB||teC){
+    var d=Math.abs(runner.te-winner.te);
+    var pct=runner.te>0?((d/runner.te)*100).toFixed(0):0;
     html+='<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);margin-bottom:14px">'
       +'<span style="font-size:20px">🏆</span>'
       +'<div><div style="font-size:.58rem;font-weight:700;color:#10B981;text-transform:uppercase;letter-spacing:.5px">Mês campeão</div>'
-      +'<div style="font-size:.82rem;font-weight:800;color:#10B981">'+winner+'</div>'
-      +'<div style="font-size:.66rem;color:var(--txt2);margin-top:1px">'+msg+'</div></div></div>';
-  }
-
-  // ── Gráfico de barras verticais agrupadas ────────────────────
-  if(topCats.length>0){
-    var maxCat=Math.max.apply(null,topCats.map(function(c){return Math.max(c.valA,c.valB);}));
-    maxCat=Math.max(maxCat,1);
-    var BAR_H=100; // altura útil das barras em px
-
-    html+='<div style="background:var(--bg2);border-radius:16px;padding:14px 12px 10px;margin-bottom:12px;border:1px solid var(--brd)">';
-    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
-    html+='<div style="font-size:.72rem;font-weight:700;color:var(--txt)">📂 Despesas por categoria</div>';
-    html+='<div style="display:flex;gap:10px">'
-      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colA+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblA+'</span></div>'
-      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colB+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblB+'</span></div>'
+      +'<div style="font-size:.82rem;font-weight:800;color:#10B981">'+winner.lbl+'</div>'
+      +'<div style="font-size:.66rem;color:var(--txt2);margin-top:1px">Gastou <strong>'+fmtK(d)+'</strong> menos que '+runner.lbl+' ('+pct+'%)</div>'
       +'</div></div>';
-
-    // Área do gráfico: barras + labels abaixo
-    html+='<div style="display:flex;align-items:flex-end;gap:4px">';
-    topCats.forEach(function(cat){
-      var hA=Math.max((cat.valA/maxCat)*BAR_H, cat.valA>0?6:0);
-      var hB=Math.max((cat.valB/maxCat)*BAR_H, cat.valB>0?6:0);
-      var nm=cat.label.length>6?cat.label.slice(0,5)+'…':cat.label;
-
-      html+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;min-width:0">';
-
-      // valores acima das barras (só se > 0)
-      html+='<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:'+BAR_H+'px;margin-bottom:4px">';
-
-      // barra A
-      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">';
-      if(cat.valA>0){
-        html+='<div style="font-size:8px;font-weight:700;color:'+colA+';margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center">'+fmtK(cat.valA)+'</div>';
-      }
-      html+='<div style="width:100%;height:'+hA.toFixed(0)+'px;background:'+colA+';border-radius:4px 4px 0 0"></div>';
-      html+='</div>';
-
-      // barra B
-      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%">';
-      if(cat.valB>0){
-        html+='<div style="font-size:8px;font-weight:700;color:'+colB+';margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center">'+fmtK(cat.valB)+'</div>';
-      }
-      html+='<div style="width:100%;height:'+hB.toFixed(0)+'px;background:'+colB+';border-radius:4px 4px 0 0"></div>';
-      html+='</div>';
-
-      html+='</div>'; // fim par barras
-
-      // linha base
-      html+='<div style="width:100%;height:1px;background:var(--brd);margin-bottom:5px"></div>';
-
-      // label: emoji + nome
-      html+='<div style="text-align:center;min-width:0;width:100%">'
-        +'<div style="font-size:12px;line-height:1">'+cat.icon+'</div>'
-        +'<div style="font-size:7px;color:var(--txt2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+nm+'</div>'
-        +'</div>';
-
-      html+='</div>'; // fim coluna
-    });
-    html+='</div>'; // fim flex
-    html+='</div>'; // fim card
   }
 
-  // ── Variação por categoria ───────────────────────────────────
-  if(topCats.length>0){
-    var sorted=topCats.slice().sort(function(a,b){return Math.abs(b.valB-b.valA)-Math.abs(a.valB-a.valA);});
-    html+='<div style="background:var(--bg2);border-radius:16px;padding:14px;border:1px solid var(--brd)">'
-      +'<div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:10px">📉 Variação</div>'
-      +'<div style="display:flex;flex-direction:column;gap:5px">';
-    sorted.forEach(function(cat){
-      var delta=cat.valB-cat.valA;
-      var isUp=delta>0;
-      if(delta===0)return;
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--brd)">'
-        +'<span style="font-size:.72rem;font-weight:600;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat.icon+' '+cat.label+'</span>'
-        +'<span style="font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:7px;flex-shrink:0;margin-left:8px;background:'+(isUp?'rgba(244,63,94,.12)':'rgba(16,185,129,.12)')+';color:'+(isUp?'#F43F5E':'#10B981')+'">'+(isUp?'▲':'▼')+' '+fmtK(Math.abs(delta))+'</span>'
-        +'</div>';
-    });
-    html+='</div></div>';
-  }
+  if(allCats.length===0)return html;
 
-  return html;
-}
+  // ── Gráfico barras verticais com scroll horizontal ────────────
+  var maxCat=Math.max.apply(null,allCats.map(function(c){return Math.max(c.valA,c.valB,c.valC);}));
+  maxCat=Math.max(maxCat,1);
+  var BAR_H=90;
+  var cols=hasCmp_C?3:2;
+  var minW=Math.max(allCats.length*(cols*18+12),120);
 
-// buildDonut global para uso em buildRepContent
-window._buildDonut=function(slices,cx,cy,r,stroke){
-  var total=slices.reduce(function(a,s){return a+s.v;},0);
-  if(total===0)return'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--bg3)" stroke-width="'+stroke+'"/>';
-  var angle=-Math.PI/2;
-  var circ=2*Math.PI*r;
-  return slices.map(function(s){
-    var pct=s.v/total;
-    var dash=circ*pct-2;
-    var gap=circ-dash-2;
-    var x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
-    angle+=pct*2*Math.PI;
-    var x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
-    var path='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.c+'" stroke-width="'+stroke+'" stroke-dasharray="'+Math.max(dash,0).toFixed(2)+' '+Math.max(gap,0).toFixed(2)+'" stroke-dashoffset="0" style="transform:rotate(-90deg) translateX(-'+cx+'px) translateY(-'+cy+'px);transition:stroke-dasharray .6s"/>';
-    return path;
-  }).join('');
-};
-
-function buildRepContent(mTxs,ti,te,bal,sav,catS,hist,mxH,alerts,txs,cats,REP_M,REP_Y,allMonths){
-  var html='';
-
-  // HERO SALDO
-  html+='<div style="margin:14px 14px 0;border-radius:22px;padding:22px 20px 20px;background:linear-gradient(135deg,rgba(123,97,255,.15),rgba(16,185,129,.08));border:1px solid rgba(123,97,255,.25);position:relative;overflow:hidden">'
-    +'<div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(123,97,255,.2),transparent 70%);pointer-events:none"></div>'
-    +'<div style="font-size:.6rem;font-weight:700;color:var(--acc2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Saldo do m&#234;s</div>'
-    +'<div style="font-size:2.2rem;font-weight:900;color:'+(bal>=0?'var(--grn)':'var(--red)')+';letter-spacing:-1.5px;line-height:1;margin-bottom:14px">'+fmt(bal)+'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">'
-    +'<div style="background:rgba(16,185,129,.15);border-radius:12px;padding:9px 10px"><div style="font-size:.55rem;color:rgba(16,185,129,.7);text-transform:uppercase;margin-bottom:2px">Receitas</div><div style="font-size:.84rem;font-weight:800;color:#10B981">'+fmt(ti)+'</div></div>'
-    +'<div style="background:rgba(244,63,94,.15);border-radius:12px;padding:9px 10px"><div style="font-size:.55rem;color:rgba(244,63,94,.7);text-transform:uppercase;margin-bottom:2px">Despesas</div><div style="font-size:.84rem;font-weight:800;color:#F43F5E">'+fmt(te)+'</div></div>'
-    +'<div style="background:rgba(245,158,11,.15);border-radius:12px;padding:9px 10px"><div style="font-size:.55rem;color:rgba(245,158,11,.7);text-transform:uppercase;margin-bottom:2px">Economia</div><div style="font-size:.84rem;font-weight:800;color:'+(sav>=0?'#F59E0B':'#F43F5E')+'">'+sav.toFixed(0)+'%</div></div>'
+  html+='<div style="background:var(--bg2);border-radius:16px;padding:14px 12px 10px;margin-bottom:12px;border:1px solid var(--brd)">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+    +'<div style="font-size:.72rem;font-weight:700;color:var(--txt)">📊 Gráfico por categoria</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colA+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblA+'</span></div>'
+    +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colB+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblB+'</span></div>'
+    +(hasCmp_C?'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:'+colC+'"></div><span style="font-size:.6rem;color:var(--txt2)">'+lblC+'</span></div>':'')
     +'</div></div>';
 
-  // ALERTAS
-  if(alerts.length>0){
-    html+='<div style="padding:10px 14px 0;display:flex;flex-direction:column;gap:5px">';
-    alerts.forEach(function(a){
-      var bg=a.type==='danger'?'rgba(244,63,94,.08)':a.type==='success'?'rgba(16,185,129,.08)':'rgba(245,158,11,.08)';
-      var brd=a.type==='danger'?'rgba(244,63,94,.2)':a.type==='success'?'rgba(16,185,129,.2)':'rgba(245,158,11,.2)';
-      var clr=a.type==='danger'?'#F43F5E':a.type==='success'?'#10B981':'#F59E0B';
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;background:'+bg+';border:1px solid '+brd+'"><span style="font-size:18px">'+a.icon+'</span><div><div style="font-size:.74rem;font-weight:700;color:'+clr+'">'+a.title+'</div><div style="font-size:.64rem;color:var(--txt2)">'+a.text+'</div></div></div>';
+  html+='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">'
+    +'<div style="display:flex;align-items:flex-end;gap:5px;min-width:'+minW+'px">';
+
+  allCats.forEach(function(cat){
+    var hA=Math.max((cat.valA/maxCat)*BAR_H,cat.valA>0?3:0);
+    var hB=Math.max((cat.valB/maxCat)*BAR_H,cat.valB>0?3:0);
+    var hC=hasCmp_C?Math.max((cat.valC/maxCat)*BAR_H,cat.valC>0?3:0):0;
+    var nm=cat.label.length>6?cat.label.slice(0,5)+'…':cat.label;
+
+    html+='<div style="flex:1;min-width:'+(cols*16+8)+'px;display:flex;flex-direction:column;align-items:center">';
+    html+='<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:'+BAR_H+'px;margin-bottom:3px">';
+
+    [[hA,colA,cat.valA],[hB,colB,cat.valB]].concat(hasCmp_C?[[hC,colC,cat.valC]]:[]).forEach(function(bar){
+      var h=bar[0],col=bar[1],v=bar[2];
+      html+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative">';
+      if(v>0){html+='<div style="position:absolute;bottom:'+(h+2)+'px;left:0;right:0;text-align:center;font-size:7px;font-weight:700;color:'+col+';white-space:nowrap;overflow:hidden">'+fmtK(v)+'</div>';}
+      html+='<div style="width:100%;height:'+h.toFixed(0)+'px;background:'+col+';border-radius:3px 3px 0 0;min-height:'+(v>0?'3':'0')+'px"></div>';
+      html+='</div>';
     });
+
     html+='</div>';
-  }
-
-
-  // CATEGORIAS
-  html+='<div style="margin:12px 14px 0;background:var(--bg3);border-radius:20px;padding:16px;border:1px solid var(--brd)">'
-    +'<div style="font-size:.76rem;font-weight:700;color:var(--txt);margin-bottom:12px">&#128184; Gastos por categoria</div>';
-  if(catS.length===0){
-    html+='<div style="text-align:center;padding:24px 0;color:var(--txt2);font-size:.76rem">Sem despesas</div>';
-  } else {
-    html+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><div style="flex-shrink:0">'+windowindow._buildDonut(catS.slice(0,6).map(function(c){return{v:c.total,c:c.color};}),54,54,38,10)+'</div><div style="flex:1;display:flex;flex-direction:column;gap:6px">';
-    catS.slice(0,5).forEach(function(cat){
-      var pct=te>0?((cat.total/te)*100):0;
-      html+='<div style="display:flex;align-items:center;gap:6px"><div style="width:7px;height:7px;border-radius:50%;background:'+cat.color+';flex-shrink:0"></div><div style="font-size:.67rem;color:var(--txt);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat.icon+' '+cat.label+'</div><div style="font-size:.68rem;font-weight:700;color:'+cat.color+';flex-shrink:0">'+pct.toFixed(0)+'%</div></div>';
-    });
-    html+='</div></div><div style="display:flex;flex-direction:column;gap:3px">';
-    catS.forEach(function(cat){
-      var pct=te>0?((cat.total/te)*100):0;
-      var did='rep-'+cat.id;
-      var cTxs=mTxs.filter(function(t){return t.type==='expense'&&t.category===cat.id;});
-      html+='<div><div data-repid="'+did+'" class="rep-cat-row" style="display:flex;align-items:center;gap:8px;padding:9px 4px;cursor:pointer"><div style="width:28px;height:28px;border-radius:9px;background:'+cat.color+'20;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">'+cat.icon+'</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:.76rem;font-weight:600;color:var(--txt)">'+cat.label+'</span><div style="display:flex;align-items:center;gap:5px;flex-shrink:0"><span style="font-size:.82rem;font-weight:800;color:'+cat.color+'">'+fmt(cat.total)+'</span><span style="font-size:.58rem;color:var(--txt2);background:var(--bg2);padding:1px 5px;border-radius:5px">'+pct.toFixed(0)+'%</span><span id="'+did+'-ic" style="font-size:.58rem;color:var(--txt2)">&#9660;</span></div></div><div style="background:var(--bg2);border-radius:4px;height:5px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:linear-gradient(90deg,'+cat.color+'88,'+cat.color+');border-radius:4px;transition:width .7s cubic-bezier(.4,0,.2,1)"></div></div></div></div><div id="'+did+'" style="display:none;padding:4px 4px 8px 40px">';
-      cTxs.sort(function(a,b){return new Date(b.date)-new Date(a.date);}).forEach(function(t){
-        var paid=t.paid!==false;
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-bottom:3px;background:var(--bg2);border-radius:10px;border:1px solid var(--brd)"><div style="flex:1;min-width:0"><div style="font-size:.74rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||cat.label)+'</div><div style="font-size:.6rem;color:var(--txt2);margin-top:1px">'+fdw(t.date)+' '+(paid?'&#9989;':'&#9203;')+'</div></div><span style="font-size:.8rem;font-weight:800;color:'+(paid?'var(--txt)':'#F59E0B')+';flex-shrink:0;margin-left:10px">'+fmt(t.value)+'</span></div>';
-      });
-      html+='</div></div>';
-    });
+    html+='<div style="width:100%;height:1px;background:var(--brd);margin-bottom:3px"></div>';
+    html+='<div style="text-align:center;width:100%">'
+      +'<div style="font-size:11px">'+cat.icon+'</div>'
+      +'<div style="font-size:6.5px;color:var(--txt2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;margin-top:1px">'+nm+'</div>'
+      +'</div>';
     html+='</div>';
-  }
-  html+='</div>';
-
-  // HISTÓRICO — todos os meses com dados, clicáveis
-  var allMonthsWithData=[];
-  var byMonth={};
-  txs.forEach(function(t){
-    var d=new Date(t.date);
-    var key=d.getFullYear()+'-'+d.getMonth();
-    if(!byMonth[key])byMonth[key]={m:d.getMonth(),y:d.getFullYear(),inc:0,exp:0};
-    if(t.type==='income')byMonth[key].inc+=t.value;
-    else byMonth[key].exp+=t.value;
   });
-  Object.keys(byMonth).sort().forEach(function(k){allMonthsWithData.push(byMonth[k]);});
-  var MONTHS_PT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-  if(allMonthsWithData.length>0){
-    var mxAll=1;
-    allMonthsWithData.forEach(function(h){if(h.inc>mxAll)mxAll=h.inc;if(h.exp>mxAll)mxAll=h.exp;});
-    var BAR_H=60;
-    html+='<div style="margin:12px 14px 0;background:var(--bg3);border-radius:20px;padding:16px;border:1px solid var(--brd)">'
-      +'<div style="font-size:.76rem;font-weight:700;color:var(--txt);margin-bottom:12px">&#128200; Evolu&#231;&#227;o — clique para navegar</div>'
-      +'<div style="overflow-x:auto;padding-bottom:4px">'
-      +'<div style="display:flex;gap:4px;align-items:flex-end;min-width:'+(allMonthsWithData.length*36)+'px;height:'+(BAR_H+28)+'px">';
-    allMonthsWithData.forEach(function(h){
-      var isCur=h.m===REP_M&&h.y===REP_Y;
-      var hInc=mxAll>0?Math.max((h.inc/mxAll)*BAR_H,h.inc>0?3:0):0;
-      var hExp=mxAll>0?Math.max((h.exp/mxAll)*BAR_H,h.exp>0?3:0):0;
-      html+='<div onclick="REP_M='+h.m+';REP_Y='+h.y+';renderMain()" style="flex:1;min-width:28px;display:flex;flex-direction:column;align-items:center;cursor:pointer;opacity:'+(isCur?1:.7)+'">'
-        +'<div style="width:100%;display:flex;gap:1px;align-items:flex-end;height:'+BAR_H+'px">'
-        +'<div style="flex:1;height:'+hInc.toFixed(0)+'px;background:'+(isCur?'#10B981':'rgba(16,185,129,.35)')+';border-radius:3px 3px 0 0;transition:all .3s"></div>'
-        +'<div style="flex:1;height:'+hExp.toFixed(0)+'px;background:'+(isCur?'#F43F5E':'rgba(244,63,94,.35)')+';border-radius:3px 3px 0 0;transition:all .3s"></div>'
-        +'</div>'
-        +'<div style="height:2px;width:100%;background:'+(isCur?'var(--acc2)':'var(--brd)')+';margin:2px 0"></div>'
-        +'<div style="font-size:7px;color:'+(isCur?'var(--acc2)':'var(--txt2)')+';font-weight:'+(isCur?700:400)+';white-space:nowrap;text-align:center">'+MONTHS_PT[h.m]+'<br>'+String(h.y).slice(2)+'</div>'
-        +'</div>';
-    });
-    html+='</div></div>'
-      +'<div style="display:flex;gap:10px;margin-top:8px">'
-      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:#10B981"></div><span style="font-size:.6rem;color:var(--txt2)">Receitas</span></div>'
-      +'<div style="display:flex;align-items:center;gap:4px"><div style="width:8px;height:8px;border-radius:2px;background:#F43F5E"></div><span style="font-size:.6rem;color:var(--txt2)">Despesas</span></div>'
-      +'</div></div>';
-  }
+  html+='</div></div></div>';
 
-  // TOP ANO
-  var yrTxs=txs.filter(function(t){var d=new Date(t.date);return t.type==='expense'&&d.getFullYear()===REP_Y;});
-  var yrTot=yrTxs.reduce(function(a,t){return a+t.value;},0);
-  if(yrTot>0){
-    var yrMap=yrTxs.reduce(function(a,t){a[t.category]=(a[t.category]||0)+t.value;return a;},{});
-    var medals=['&#129351;','&#129352;','&#129353;','4','5'];
-    var top=Object.entries(yrMap).map(function(e){return{id:e[0],total:e[1],cat:cats.find(function(c){return c.id===e[0];})||{icon:'&#128230;',label:e[0],color:'#888'}};}).sort(function(a,b){return b.total-a.total;}).slice(0,5);
-    html+='<div style="margin:12px 14px 0;background:var(--bg3);border-radius:20px;padding:16px;border:1px solid var(--brd)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:.76rem;font-weight:700;color:var(--txt)">&#127942; Top categorias '+REP_Y+'</div><div style="font-size:.68rem;font-weight:700;color:var(--red)">'+fmt(yrTot)+'</div></div>';
-    top.forEach(function(item,i){
-      var pct=yrTot>0?(item.total/yrTot*100):0;
-      html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:13px;flex-shrink:0">'+medals[i]+'</span><div style="width:28px;height:28px;border-radius:9px;background:'+item.cat.color+'20;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">'+item.cat.icon+'</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:.72rem;font-weight:600;color:var(--txt)">'+item.cat.label+'</span><span style="font-size:.7rem;font-weight:800;color:'+item.cat.color+'">'+fmt(item.total)+'</span></div><div style="background:var(--bg2);border-radius:4px;height:4px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:'+item.cat.color+';border-radius:4px;transition:width .6s"></div></div></div><span style="font-size:.58rem;color:var(--txt2);flex-shrink:0">'+pct.toFixed(0)+'%</span></div>';
-    });
-    html+='</div>';
-  }
+  // ── Variação — TODAS as categorias ───────────────────────────
+  var sorted=allCats.slice().sort(function(a,b){
+    var da=Math.abs(a.valB-a.valA)+(hasCmp_C?Math.abs(a.valC-a.valA):0);
+    var db=Math.abs(b.valB-b.valA)+(hasCmp_C?Math.abs(b.valC-b.valA):0);
+    return db-da;
+  });
 
-  // RECEITAS
-  if(ti>0){
-    var incTxs=mTxs.filter(function(t){return t.type==='income';}).sort(function(a,b){return b.value-a.value;});
-    html+='<div style="margin:12px 14px 0;background:var(--bg3);border-radius:20px;padding:16px;border:1px solid var(--brd)"><div style="font-size:.76rem;font-weight:700;color:var(--txt);margin-bottom:10px">&#128154; Receitas do m&#234;s</div><div style="display:flex;flex-direction:column;gap:5px">';
-    incTxs.forEach(function(t){
-      var cat=getCat(t.category);
-      html+='<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:rgba(16,185,129,.06);border-radius:12px;border:1px solid rgba(16,185,129,.15)"><span style="font-size:15px">'+cat.icon+'</span><div style="flex:1;min-width:0"><div style="font-size:.76rem;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(t.description||cat.label)+'</div><div style="font-size:.6rem;color:var(--txt2)">'+fdw(t.date)+'</div></div><span style="font-size:.84rem;font-weight:800;color:#10B981;flex-shrink:0">+'+fmt(t.value)+'</span></div>';
-    });
-    html+='</div></div>';
-  }
+  html+='<div style="background:var(--bg2);border-radius:16px;padding:14px;border:1px solid var(--brd)">'
+    +'<div style="font-size:.72rem;font-weight:700;color:var(--txt);margin-bottom:10px">📉 Variação — todas as categorias</div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px">';
 
+  sorted.forEach(function(cat){
+    var deltaB=cat.valB-cat.valA;
+    var deltaC=hasCmp_C?(cat.valC-cat.valA):null;
+
+    function badge(delta,lbl){
+      if(delta===0)return'<span style="font-size:.62rem;padding:2px 6px;border-radius:6px;background:rgba(100,100,100,.1);color:var(--txt2)">= igual a A</span>';
+      var up=delta>0;
+      return'<span style="font-size:.62rem;font-weight:800;padding:2px 6px;border-radius:6px;background:'+(up?'rgba(244,63,94,.12)':'rgba(16,185,129,.12)')+';color:'+(up?'#F43F5E':'#10B981')+'">'+(up?'▲':'▼')+' '+fmtK(Math.abs(delta))+' vs A</span>';
+    }
+
+    html+='<div style="padding:9px 10px;border-radius:10px;background:var(--bg3);border:1px solid var(--brd)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasCmp_C?'6':'0')+'px">'
+      +'<div style="display:flex;align-items:center;gap:7px">'
+      +'<span style="font-size:14px">'+cat.icon+'</span>'
+      +'<span style="font-size:.72rem;font-weight:600;color:var(--txt)">'+cat.label+'</span>'
+      +'</div>'
+      +badge(deltaB,lblB)
+      +'</div>';
+
+    if(hasCmp_C){
+      html+='<div style="display:flex;justify-content:flex-end">'+badge(deltaC,lblC)+'</div>';
+    }
+
+    html+='<div style="font-size:.6rem;color:var(--txt2);margin-top:4px">'
+      +'<span style="color:'+colA+'">'+lblA+': '+fmtK(cat.valA)+'</span>'
+      +'  <span style="color:'+colB+'">'+lblB+': '+fmtK(cat.valB)+'</span>'
+      +(hasCmp_C?'  <span style="color:'+colC+'">'+lblC+': '+fmtK(cat.valC)+'</span>':'')
+      +'</div>'
+      +'</div>';
+  });
+
+  html+='</div></div>';
   return html;
 }
 
-// Busca por descrição nos relatórios
 window.repDescSearch=function(){
   var q=(document.getElementById('rep-desc-search')||{}).value||'';
   var fromEl=document.getElementById('rep-date-from');
@@ -2698,7 +2556,31 @@ function pgReports(){
   <div class="chart-modern" style="margin-top:16px;padding:20px">
     <div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:.9rem;font-weight:800;color:var(--txt)">⚖️ Comparar Meses</div><button id="cmp-chart-btn" onclick="(function(){var el=document.getElementById('cmp-chart');var btn=document.getElementById('cmp-chart-btn');if(!el)return;var open=el.style.display==='none';el.style.display=open?'block':'none';btn.textContent=open?'Ocultar gráfico ▲':'Ver gráfico 📊';btn.style.background=open?'rgba(123,97,255,.15)':'var(--bg3)';})()" style="font-size:.68rem;font-weight:700;color:var(--acc2);background:var(--bg3);border:1px solid var(--brd);border-radius:10px;padding:5px 11px;cursor:pointer;transition:all .2s;white-space:nowrap">Ver gráfico 📊</button></div>
-      <div style="font-size:.7rem;color:var(--txt2)">Selecione 2 meses e o tipo para comparar</div>
+      <div style="font-size:.7rem;color:var(--txt2)">Compare até 3 meses — selecione os meses e o tipo</div>    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="width:10px;height:10px;border-radius:2px;background:#F59E0B"></div><span style="font-size:.6rem;font-weight:700;color:var(--txt2);text-transform:uppercase">Mês A</span></div>
+        <select class="inp" style="width:100%;font-size:.74rem;padding:8px 10px;border-radius:10px;border:2px solid #F59E0B44" onchange="CMP_A=this.value;renderMain()">
+          <option value="">Selecione...</option>
+          ${allMonths.map(mo=>{const key=mo.y+'-'+mo.m;return`<option value="${key}"${CMP_A===key?' selected':''} >${MONTHS[mo.m]} ${mo.y}</option>`;}).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="width:10px;height:10px;border-radius:2px;background:#8B5CF6"></div><span style="font-size:.6rem;font-weight:700;color:var(--txt2);text-transform:uppercase">Mês B</span></div>
+        <select class="inp" style="width:100%;font-size:.74rem;padding:8px 10px;border-radius:10px;border:2px solid #8B5CF644" onchange="CMP_B=this.value;renderMain()">
+          <option value="">Selecione...</option>
+          ${allMonths.map(mo=>{const key=mo.y+'-'+mo.m;return`<option value="${key}"${CMP_B===key?' selected':''} >${MONTHS[mo.m]} ${mo.y}</option>`;}).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px"><div style="width:10px;height:10px;border-radius:2px;background:#10B981"></div><span style="font-size:.6rem;font-weight:700;color:var(--txt2);text-transform:uppercase">Mês C (opcional)</span></div>
+      <select class="inp" style="width:100%;font-size:.74rem;padding:8px 10px;border-radius:10px;border:2px solid #10B98144" onchange="CMP_C=this.value;renderMain()">
+          <option value="">Nenhum</option>
+          ${allMonths.map(mo=>{const key=mo.y+'-'+mo.m;return`<option value="${key}"${CMP_C===key?' selected':''} >${MONTHS[mo.m]} ${mo.y}</option>`;}).join('')}
+      </select>
+    </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
@@ -2733,76 +2615,84 @@ function pgReports(){
     </div>
 
     ${(()=>{
-      if(!CMP_A||!CMP_B) return`<div style="text-align:center;padding:32px 0;color:var(--txt2);font-size:.8rem">👆 Selecione os dois meses acima</div>`;
+      if(!CMP_A||!CMP_B) return`<div style="text-align:center;padding:32px 0;color:var(--txt2);font-size:.8rem">👆 Selecione pelo menos os dois primeiros meses acima</div>`;
+      const [ay,am]=[...CMP_A.split('-').map(Number)];
+      const [by,bm]=[...CMP_B.split('-').map(Number)];
+      const hasCmp_C=CMP_C&&CMP_C!=='';
+      const [cy,cm]=hasCmp_C?CMP_C.split('-').map(Number):[null,null];
+      const TYPE=CMP_TYPE||'expense';
+      const txs=D.transactions||[];
 
-      const [ayStr,amStr]=CMP_A.split('-');
-      const [byStr,bmStr]=CMP_B.split('-');
-      const ay=parseInt(ayStr),am=parseInt(amStr),by=parseInt(byStr),bm=parseInt(bmStr);
-      const TYPE=window.CMP_TYPE||'expense';
       const txsA=txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===ay&&d.getMonth()===am&&(TYPE==='both'||t.type===TYPE);});
       const txsB=txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===by&&d.getMonth()===bm&&(TYPE==='both'||t.type===TYPE);});
+      const txsC=hasCmp_C?txs.filter(t=>{const d=new Date(t.date);return d.getFullYear()===cy&&d.getMonth()===cm&&(TYPE==='both'||t.type===TYPE);}):[];
+
       const totA=txsA.reduce((s,t)=>s+t.value,0);
       const totB=txsB.reduce((s,t)=>s+t.value,0);
+      const totC=txsC.reduce((s,t)=>s+t.value,0);
+
       const lblA=MONTHS[am]+'/'+String(ay).slice(2);
       const lblB=MONTHS[bm]+'/'+String(by).slice(2);
+      const lblC=hasCmp_C?MONTHS[cm]+'/'+String(cy).slice(2):'';
 
-      // Cores fixas: A=amarelo, B=roxo
       const colA='#F59E0B';
       const colB='#8B5CF6';
+      const colC='#10B981';
 
-      // Gráfico por categoria — sem lançamentos
-      const allCatIds=[...new Set([...txsA.map(t=>t.category),...txsB.map(t=>t.category)])];
+      // Todas as categorias presentes em qualquer mês selecionado
+      const allIds=[...new Set([...txsA,...txsB,...txsC].map(t=>t.category))];
       const catsMap={};
-      allCatIds.forEach(id=>{
+      allIds.forEach(id=>{
         const vA=txsA.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
         const vB=txsB.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0);
-        catsMap[id]={vA,vB};
+        const vC=hasCmp_C?txsC.filter(t=>t.category===id).reduce((s,t)=>s+t.value,0):0;
+        catsMap[id]={vA,vB,vC};
       });
-      const maxCat=Math.max(...Object.values(catsMap).map(v=>Math.max(v.vA,v.vB)),1);
+      const maxCat=Math.max(...Object.values(catsMap).map(v=>Math.max(v.vA,v.vB,v.vC)),1);
+      const sortedCats=allIds.map(id=>({id,...catsMap[id]})).sort((a,b)=>(b.vA+b.vB+b.vC)-(a.vA+a.vB+a.vC));
 
-      // Ordenar por maior valor entre A e B
-      const sortedCats=allCatIds
-        .map(id=>({id,...catsMap[id]}))
-        .sort((a,b)=>(b.vA+b.vB)-(a.vA+a.vB));
-
-      const catHtml=sortedCats.length===0?'':
-        `<div>
-          <div style="display:flex;gap:14px;margin-bottom:12px;align-items:center">
-            <div style="font-size:.72rem;font-weight:700;color:var(--txt)">Por categoria</div>
-            <div style="display:flex;gap:10px">
-              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colA}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblA}</span></div>
-              <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:3px;background:${colB}"></div><span style="font-size:.65rem;color:var(--txt2)">${lblB}</span></div>
+      // ── Barras horizontais por categoria (sempre visível) ────
+      const catHtml=sortedCats.length===0?'':`<div style="margin-bottom:2px">
+          <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+            <div style="font-size:.74rem;font-weight:700;color:var(--txt)">Por categoria</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${colA}"></div><span style="font-size:.62rem;color:var(--txt2)">${lblA}</span></div>
+              <div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${colB}"></div><span style="font-size:.62rem;color:var(--txt2)">${lblB}</span></div>
+              ${hasCmp_C?`<div style="display:flex;align-items:center;gap:4px"><div style="width:9px;height:9px;border-radius:2px;background:${colC}"></div><span style="font-size:.62rem;color:var(--txt2)">${lblC}</span></div>`:''}
             </div>
           </div>
-          ${sortedCats.map(({id,vA,vB})=>{
-            const cat=cats.find(c=>c.id===id)||{label:id,icon:'📦'};
-            const pA=(vA/maxCat)*100, pB=(vB/maxCat)*100;
-            const maiorLbl=vA>vB?lblA:vB>vA?lblB:'igual';
-            const maiorCol=vA>vB?colA:vB>vA?colB:'var(--txt2)';
-            return`<div style="padding:14px 0;border-bottom:1px solid var(--brd)">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="font-size:.78rem;color:var(--txt);font-weight:700">${cat.icon} ${cat.label}</span>
-                <span style="font-size:.65rem;color:${maiorCol};font-weight:700;padding:3px 9px;background:${maiorCol}15;border:1px solid ${maiorCol}40;border-radius:20px">${maiorLbl} maior</span>
+          ${sortedCats.map(({id,vA,vB,vC})=>{
+            const cat=cats.find(c=>c.id===id)||{label:id,icon:'📦',color:'#888'};
+            const pA=(vA/maxCat)*100, pB=(vB/maxCat)*100, pC=(vC/maxCat)*100;
+            const vals=[{v:vA,c:colA,l:'A'},{v:vB,c:colB,l:'B'},...(hasCmp_C?[{v:vC,c:colC,l:'C'}]:[])];
+            const best=vals.reduce((a,b)=>b.v>a.v?b:a);
+            return`<div style="padding:10px 0;border-bottom:1px solid var(--brd)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+                <span style="font-size:.76rem;font-weight:700;color:var(--txt)">${cat.icon} ${cat.label}</span>
+                <span style="font-size:.6rem;font-weight:700;color:${best.c};padding:2px 7px;background:${best.c}18;border-radius:20px">${best.l} maior</span>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-                <span style="font-size:.64rem;font-weight:700;color:${colA};width:16px;flex-shrink:0">A</span>
-                <div style="flex:1;background:var(--bg3);border-radius:6px;height:10px;overflow:hidden">
-                  <div style="height:100%;width:${pA}%;background:linear-gradient(90deg,${colA}cc,${colA});border-radius:6px;transition:width .6s cubic-bezier(.4,0,.2,1)"></div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:14px;font-size:.6rem;font-weight:700;color:${colA};flex-shrink:0;text-align:center">A</div>
+                  <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden"><div style="height:100%;width:${pA.toFixed(1)}%;background:${colA};border-radius:5px;transition:width .5s"></div></div>
+                  <span style="font-size:.7rem;font-weight:800;color:${colA};min-width:72px;text-align:right">${fmt(vA)}</span>
                 </div>
-                <span style="font-size:.72rem;font-weight:800;color:${colA};min-width:68px;text-align:right">${fmt(vA)}</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:.64rem;font-weight:700;color:${colB};width:16px;flex-shrink:0">B</span>
-                <div style="flex:1;background:var(--bg3);border-radius:6px;height:10px;overflow:hidden">
-                  <div style="height:100%;width:${pB}%;background:linear-gradient(90deg,${colB}cc,${colB});border-radius:6px;transition:width .6s cubic-bezier(.4,0,.2,1)"></div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:14px;font-size:.6rem;font-weight:700;color:${colB};flex-shrink:0;text-align:center">B</div>
+                  <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden"><div style="height:100%;width:${pB.toFixed(1)}%;background:${colB};border-radius:5px;transition:width .5s"></div></div>
+                  <span style="font-size:.7rem;font-weight:800;color:${colB};min-width:72px;text-align:right">${fmt(vB)}</span>
                 </div>
-                <span style="font-size:.72rem;font-weight:800;color:${colB};min-width:68px;text-align:right">${fmt(vB)}</span>
+                ${hasCmp_C?`<div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:14px;font-size:.6rem;font-weight:700;color:${colC};flex-shrink:0;text-align:center">C</div>
+                  <div style="flex:1;background:var(--bg3);border-radius:5px;height:9px;overflow:hidden"><div style="height:100%;width:${pC.toFixed(1)}%;background:${colC};border-radius:5px;transition:width .5s"></div></div>
+                  <span style="font-size:.7rem;font-weight:800;color:${colC};min-width:72px;text-align:right">${fmt(vC)}</span>
+                </div>`:''}
               </div>
             </div>`;
           }).join('')}
         </div>`;
 
-      return catHtml+'<div id="cmp-chart" style="display:none;margin-top:12px">'+calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats)+'</div>';
+      return catHtml+'<div id="cmp-chart" style="display:none;margin-top:12px">'+calcWinner(txsA,txsB,totA,totB,lblA,lblB,cats,txsC,totC,lblC,hasCmp_C)+'</div>';
     })()}
   </div>
   `}`;
